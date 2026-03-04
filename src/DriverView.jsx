@@ -14,9 +14,15 @@ export default function DriverView({ viagens, setViagens, onStatusChange, motori
   const agendadas = minhas.filter(v => v.data > TODAY && v.status !== "cancelada" && v.status !== "concluida").sort((a,b) => a.data.localeCompare(b.data));
   const historico = minhas.filter(v => v.status === "concluida" || (v.data < TODAY && v.status !== "agendada")).sort((a,b) => b.data.localeCompare(a.data));
 
-  function salvarAssinatura(viagemId, paxId, svg) {
+  function salvarAssinatura(viagemId, paxId, svg, acompId=null) {
     setViagens(prev => prev.map(v => v.id !== viagemId ? v : {
-      ...v, passageiros: v.passageiros.map(p => p.id !== paxId ? p : { ...p, assinatura: svg })
+      ...v, passageiros: v.passageiros.map(p => {
+        if(p.id !== paxId) return p;
+        if(acompId) {
+          return {...p, acompanhantes: p.acompanhantes.map(a => a.id===acompId ? {...a,assinatura:svg} : a)};
+        }
+        return {...p, assinatura: svg};
+      })
     }));
     setAssinaturaModal(null);
   }
@@ -36,7 +42,8 @@ export default function DriverView({ viagens, setViagens, onStatusChange, motori
       {assinaturaModal && (
         <ModalAssinatura
           passageiro={assinaturaModal.pax}
-          onSave={svg => salvarAssinatura(assinaturaModal.viagemId, assinaturaModal.pax.id, svg)}
+          nomeOverride={assinaturaModal.nomeAcomp}
+          onSave={svg => salvarAssinatura(assinaturaModal.viagemId, assinaturaModal.pax.id, svg, assinaturaModal.acompId||null)}
           onClose={() => setAssinaturaModal(null)}
         />
       )}
@@ -144,11 +151,28 @@ export default function DriverView({ viagens, setViagens, onStatusChange, motori
                       </span>
                     </div>
                   </div>
-                  {/* Botão Assinatura */}
+                  {/* Assinatura do paciente */}
                   {!p.assinatura
-                    ? <Btn small color="#3b82f6" full onClick={()=>setAssinaturaModal({viagemId:viagem.id,pax:p})}>✍️ Colher Assinatura</Btn>
-                    : <div style={{ background:"#052e1c",border:"1px solid #34d39944",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#34d399",textAlign:"center" }}>✅ Assinatura coletada</div>
+                    ? <Btn small color="#3b82f6" full onClick={()=>setAssinaturaModal({viagemId:viagem.id,pax:p,acompId:null})}>✍️ Assinatura do Paciente</Btn>
+                    : <div style={{ background:"#052e1c",border:"1px solid #34d39944",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#34d399",textAlign:"center",marginBottom:4 }}>✅ Paciente assinou</div>
                   }
+                  {/* Acompanhantes */}
+                  {p.acompanhantes?.length>0 && (
+                    <div style={{ marginTop:6 }}>
+                      {p.acompanhantes.map(a=>(
+                        <div key={a.id} style={{ background:"#0a1628",borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                          <div>
+                            <div style={{ fontSize:12,color:"#94a3b8" }}>👤 Acompanhante</div>
+                            <div style={{ fontSize:13,fontWeight:600,color:"#e2e8f0" }}>{a.nome}</div>
+                          </div>
+                          {!a.assinatura
+                            ? <Btn small color="#a78bfa" onClick={()=>setAssinaturaModal({viagemId:viagem.id,pax:p,acompId:a.id,nomeAcomp:a.nome})}>✍️ Assinar</Btn>
+                            : <span style={{ fontSize:11,color:"#34d399" }}>✅ Assinou</span>
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

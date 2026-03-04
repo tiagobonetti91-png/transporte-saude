@@ -115,7 +115,12 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
   const [horCheg,setHorCheg]=useState("08:00");
   const [localEmbarque,setLocalEmbarque]=useState("");
   const [tipoTrajeto,setTipoTrajeto]=useState("ida_volta");
+  const [acompNome,setAcompNome]=useState("");
+  const [acompList,setAcompList]=useState([]);
+
   const cap=veiculos.find(v=>v.id===parseInt(form.veiculoId))?.capacidade||0;
+  // total de vagas = passageiros + seus acompanhantes
+  const totalVagas = form.passageiros.reduce((a,p)=>a+1+(p.acompanhantes?.length||0),0);
 
   const TRAJETOS=[
     {value:"ida_volta", label:"Ida e Volta"},
@@ -123,11 +128,20 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
     {value:"volta",     label:"Somente Volta"},
   ];
 
+  function addAcomp() {
+    if(!acompNome.trim()) return;
+    setAcompList(prev=>[...prev,{id:Date.now(),nome:acompNome.trim(),assinatura:null}]);
+    setAcompNome("");
+  }
+  function removeAcomp(id) { setAcompList(prev=>prev.filter(a=>a.id!==id)); }
+
   function addPax() {
     if(!selPac||!selDest) return;
-    setForm(f=>({...f,passageiros:[...f.passageiros,{id:Date.now(),paciente:selPac,destino:selDest,horarioChegada:horCheg,localEmbarque,tipoTrajeto,status:"indefinido",assinatura:null}]}));
+    const vagasNecessarias = 1 + acompList.length;
+    if(totalVagas + vagasNecessarias > cap) { alert(`Veículo lotado! Capacidade: ${cap} vagas.`); return; }
+    setForm(f=>({...f,passageiros:[...f.passageiros,{id:Date.now(),paciente:selPac,destino:selDest,horarioChegada:horCheg,localEmbarque,tipoTrajeto,acompanhantes:acompList,status:"indefinido",assinatura:null}]}));
     setSelPac(null);setPaxQ("");setSelDest(null);setDestQ("");setPaxRes([]);setDestRes([]);
-    setLocalEmbarque(""); setTipoTrajeto("ida_volta");
+    setLocalEmbarque(""); setTipoTrajeto("ida_volta"); setAcompList([]); setAcompNome("");
   }
   function save() {
     const veiculo=veiculos.find(v=>v.id===parseInt(form.veiculoId));
@@ -173,12 +187,26 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
           <label style={S.label}>Local de Embarque</label>
           <input value={localEmbarque} onChange={e=>setLocalEmbarque(e.target.value)} placeholder="Ex: Rua das Flores, 123 / Praça Central" style={S.input}/>
         </div>
+        {/* Acompanhantes */}
         <div style={{ marginTop:10 }}>
-          <Btn onClick={addPax} disabled={!selPac||!selDest||form.passageiros.length>=cap} color="#3b82f6" full>+ Adicionar Passageiro</Btn>
+          <label style={S.label}>Acompanhantes ({acompList.length})</label>
+          <div style={{ display:"flex", gap:8 }}>
+            <input value={acompNome} onChange={e=>setAcompNome(e.target.value)} placeholder="Nome do acompanhante" style={{...S.input,marginBottom:0}} onKeyDown={e=>e.key==="Enter"&&addAcomp()}/>
+            <Btn onClick={addAcomp} disabled={!acompNome.trim()} color="#a78bfa" small>+ Add</Btn>
+          </div>
+          {acompList.map(a=>(
+            <div key={a.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:"#0a1628",borderRadius:8,padding:"6px 12px",marginTop:6,fontSize:12,color:"#e2e8f0" }}>
+              <span>👤 {a.nome}</span>
+              <button onClick={()=>removeAcomp(a.id)} style={{ background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:16 }}>×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:10 }}>
+          <Btn onClick={addPax} disabled={!selPac||!selDest||totalVagas>=cap} color="#3b82f6" full>+ Adicionar Passageiro</Btn>
         </div>
       </div>
       {form.passageiros.length>0 && <>
-        <SecTitle>Passageiros ({form.passageiros.length}/{cap})</SecTitle>
+        <SecTitle>Passageiros ({totalVagas}/{cap} vagas)</SecTitle>
         {form.passageiros.map((p,i)=>(
           <div key={p.id} style={{ background:"#0f2040", borderRadius:10, padding:"10px 14px", marginBottom:8, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div>
@@ -193,6 +221,13 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
             </div>
             <button onClick={()=>setForm(f=>({...f,passageiros:f.passageiros.filter((_,j)=>j!==i)}))} style={{ background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18 }}>×</button>
           </div>
+          {p.acompanhantes?.length>0 && (
+            <div style={{ paddingLeft:14,marginTop:4 }}>
+              {p.acompanhantes.map(a=>(
+                <div key={a.id} style={{ fontSize:11,color:"#94a3b8",padding:"2px 0" }}>👤 {a.nome}</div>
+              ))}
+            </div>
+          )}
         ))}
       </>}
       <div style={{ display:"flex", gap:10, marginTop:12 }}>
@@ -250,7 +285,7 @@ export function ModalAbastecimento({ viagemId, veiculo, motoristaNome, onSave, o
 }
 
 // Modal de Assinatura Digital
-export function ModalAssinatura({ passageiro, onSave, onClose }) {
+export function ModalAssinatura({ passageiro, nomeOverride, onSave, onClose }) {
   const [signed, setSigned] = useState(false);
   const [points, setPoints] = useState([]);
   const [drawing, setDrawing] = useState(false);
@@ -293,9 +328,10 @@ export function ModalAssinatura({ passageiro, onSave, onClose }) {
     <div style={S.modal}><div style={S.modalBox}>
       <ModalHdr title="Assinatura Digital" onClose={onClose}/>
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontSize:14, fontWeight:600, color:"#e2e8f0" }}>{passageiro.paciente.nome}</div>
-        <div style={{ fontSize:12, color:"#64748b" }}>Destino: {passageiro.destino.nome}</div>
-        <div style={{ fontSize:12, color:"#a78bfa" }}>CPF: {passageiro.paciente.cpf}</div>
+        {nomeOverride
+          ? <><div style={{ fontSize:11,color:"#a78bfa",marginBottom:2 }}>ACOMPANHANTE DE {passageiro.paciente.nome}</div><div style={{ fontSize:14,fontWeight:600,color:"#e2e8f0" }}>{nomeOverride}</div></>
+          : <><div style={{ fontSize:14,fontWeight:600,color:"#e2e8f0" }}>{passageiro.paciente.nome}</div><div style={{ fontSize:12,color:"#64748b" }}>Destino: {passageiro.destino.nome}</div><div style={{ fontSize:12,color:"#a78bfa" }}>CPF: {passageiro.paciente.cpf}</div></>
+        }
       </div>
       <div style={{ background:"#070f1f", border:"2px dashed #1e3a5f", borderRadius:12, marginBottom:14, position:"relative", overflow:"hidden", touchAction:"none" }}
         onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}

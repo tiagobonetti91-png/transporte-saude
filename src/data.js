@@ -131,7 +131,7 @@ export const apiViagens = {
       veiculo: mapVeiculo((veiculos||[]).find(x => x.id === v.veiculo_id)),
       motorista: mapMotorista((motoristas||[]).find(x => x.id === v.motorista_id)),
       passageiros: (passageiros||[]).filter(p => p.viagem_id === v.id).map(p => ({
-        id: p.id, status: p.status, horarioChegada: p.horario_chegada, localEmbarque: p.local_embarque, tipoTrajeto: p.tipo_trajeto||"ida_volta", assinatura: p.assinatura,
+        id: p.id, status: p.status, horarioChegada: p.horario_chegada, localEmbarque: p.local_embarque, tipoTrajeto: p.tipo_trajeto||"ida_volta", acompanhantes: p.acompanhantes||[], assinatura: p.assinatura,
         paciente: mapPaciente((pacientes||[]).find(x => x.id === p.paciente_id)),
         destino: mapDestino((destinos||[]).find(x => x.id === p.destino_id)),
       })),
@@ -140,7 +140,7 @@ export const apiViagens = {
   async criar(form) {
     const [viagem] = await sb("viagens", { method:"POST", body: JSON.stringify({ data:form.data, horario_saida:form.horarioSaida, veiculo_id:form.veiculo.id, motorista_id:form.motorista.id, status:form.status, abastecimento:form.abastecimento||null }) });
     if (form.passageiros.length > 0) {
-      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:viagem.id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, local_embarque:p.localEmbarque||null, tipo_trajeto:p.tipoTrajeto||"ida_volta", status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
+      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:viagem.id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, local_embarque:p.localEmbarque||null, tipo_trajeto:p.tipoTrajeto||"ida_volta", acompanhantes:p.acompanhantes||[], status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
     }
     return viagem;
   },
@@ -148,7 +148,7 @@ export const apiViagens = {
     await sb(`viagens?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ data:form.data, horario_saida:form.horarioSaida, veiculo_id:form.veiculo.id, motorista_id:form.motorista.id, status:form.status, abastecimento:form.abastecimento||null }) });
     await sb(`passageiros_viagem?viagem_id=eq.${id}`, { method:"DELETE", prefer:"" });
     if (form.passageiros.length > 0) {
-      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, local_embarque:p.localEmbarque||null, tipo_trajeto:p.tipoTrajeto||"ida_volta", status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
+      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, local_embarque:p.localEmbarque||null, tipo_trajeto:p.tipoTrajeto||"ida_volta", acompanhantes:p.acompanhantes||[], status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
     }
   },
   async atualizarStatusPassageiro(paxId, status) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ status }) }); },
