@@ -227,7 +227,7 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
                 <div key={a.id} style={{ fontSize:11,color:"#94a3b8",padding:"2px 0" }}>👤 {a.nome}</div>
               ))}
             </div>
-          )}          )}
+          )}
         ))}
       </>}
       <div style={{ display:"flex", gap:10, marginTop:12 }}>
