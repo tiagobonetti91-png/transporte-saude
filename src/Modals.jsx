@@ -108,7 +108,7 @@ export function ModalAdmin({ item, onSave, onClose }) {
 export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, onSave, onClose }) {
   const [form,setForm]=useState(item
     ?{id:item.id,data:item.data,horarioSaida:item.horarioSaida,veiculoId:item.veiculo.id,motoristaId:item.motorista.id,passageiros:item.passageiros,status:item.status,abastecimento:item.abastecimento||null}
-    :{data:TODAY,horarioSaida:"05:30",veiculoId:veiculos[0]?.id||1,motoristaId:motoristas[0]?.id||1,passageiros:[],status:"agendada"});
+    :{data:TODAY,horarioSaida:"05:30",veiculoId:veiculos[0]?.id||1,motoristaId:motoristas[0]?.id||1,passageiros:[],status:"agendada",abastecimento:null});
   const [paxQ,setPaxQ]=useState(""); const [paxRes,setPaxRes]=useState([]);
   const [destQ,setDestQ]=useState(""); const [destRes,setDestRes]=useState([]);
   const [selPac,setSelPac]=useState(null); const [selDest,setSelDest]=useState(null);

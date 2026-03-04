@@ -1,5 +1,100 @@
-export const TODAY = "2026-03-02";
+// ── Supabase config ───────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://vekpgebyviazxongeuaa.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZla3BnZWJ5dmlhenhvbmdldWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjY1MTgsImV4cCI6MjA4ODIwMjUxOH0.eFkmSZD9jeUt7mHPOi-J8zOdjj6EWGBf3a2p8MVC6uw";
 
+async function sb(path, options = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": options.prefer !== undefined ? options.prefer : "return=representation",
+      ...options.headers,
+    },
+    ...options,
+  });
+  if (!res.ok) { const err = await res.text(); throw new Error(`Supabase: ${err}`); }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+export const apiPacientes = {
+  async listar() { return sb("pacientes?select=*&order=nome"); },
+  async criar(d) { return sb("pacientes", { method:"POST", body: JSON.stringify({ nome:d.nome, cpf:d.cpf, telefone:d.telefone, data_nasc:d.dataNasc||null }) }); },
+  async atualizar(id, d) { return sb(`pacientes?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cpf:d.cpf, telefone:d.telefone, data_nasc:d.dataNasc||null }) }); },
+  async deletar(id) { return sb(`pacientes?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+export const apiDestinos = {
+  async listar() { return sb("destinos?select=*&order=nome"); },
+  async criar(d) { return sb("destinos", { method:"POST", body: JSON.stringify({ nome:d.nome, cidade:d.cidade, especialidade:d.especialidade, endereco:d.endereco, telefone:d.telefone }) }); },
+  async atualizar(id, d) { return sb(`destinos?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cidade:d.cidade, especialidade:d.especialidade, endereco:d.endereco, telefone:d.telefone }) }); },
+  async deletar(id) { return sb(`destinos?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+export const apiMotoristas = {
+  async listar() { return sb("motoristas?select=*&order=nome"); },
+  async criar(d) { return sb("motoristas", { method:"POST", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) }); },
+  async atualizar(id, d) { return sb(`motoristas?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) }); },
+  async deletar(id) { return sb(`motoristas?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+export const apiVeiculos = {
+  async listar() { return sb("veiculos?select=*&order=placa"); },
+  async criar(d) { return sb("veiculos", { method:"POST", body: JSON.stringify({ placa:d.placa, modelo:d.modelo, capacidade:d.capacidade, tipo:d.tipo, ano:d.ano, cor:d.cor, km_atual:d.kmAtual||0, combustivel:d.combustivel, consumo_medio:d.consumoMedio }) }); },
+  async atualizar(id, d) { return sb(`veiculos?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ placa:d.placa, modelo:d.modelo, capacidade:d.capacidade, tipo:d.tipo, ano:d.ano, cor:d.cor, km_atual:d.kmAtual||0, combustivel:d.combustivel, consumo_medio:d.consumoMedio }) }); },
+  async deletar(id) { return sb(`veiculos?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+export const apiAdmins = {
+  async listar() { return sb("admins?select=*&order=nome"); },
+  async criar(d) { return sb("admins", { method:"POST", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) }); },
+  async atualizar(id, d) { return sb(`admins?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) }); },
+  async deletar(id) { return sb(`admins?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+export const apiViagens = {
+  async listar() {
+    const [viagens, passageiros, motoristas, veiculos, pacientes, destinos] = await Promise.all([
+      sb("viagens?select=*&order=data.desc,horario_saida"),
+      sb("passageiros_viagem?select=*"),
+      sb("motoristas?select=*"),
+      sb("veiculos?select=*"),
+      sb("pacientes?select=*"),
+      sb("destinos?select=*"),
+    ]);
+    return (viagens||[]).map(v => ({
+      id: v.id, data: v.data, horarioSaida: v.horario_saida, status: v.status, abastecimento: v.abastecimento,
+      veiculo: mapVeiculo((veiculos||[]).find(x => x.id === v.veiculo_id)),
+      motorista: mapMotorista((motoristas||[]).find(x => x.id === v.motorista_id)),
+      passageiros: (passageiros||[]).filter(p => p.viagem_id === v.id).map(p => ({
+        id: p.id, status: p.status, horarioChegada: p.horario_chegada, assinatura: p.assinatura,
+        paciente: mapPaciente((pacientes||[]).find(x => x.id === p.paciente_id)),
+        destino: mapDestino((destinos||[]).find(x => x.id === p.destino_id)),
+      })),
+    }));
+  },
+  async criar(form) {
+    const [viagem] = await sb("viagens", { method:"POST", body: JSON.stringify({ data:form.data, horario_saida:form.horarioSaida, veiculo_id:form.veiculo.id, motorista_id:form.motorista.id, status:form.status, abastecimento:form.abastecimento||null }) });
+    if (form.passageiros.length > 0) {
+      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:viagem.id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
+    }
+    return viagem;
+  },
+  async atualizar(id, form) {
+    await sb(`viagens?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ data:form.data, horario_saida:form.horarioSaida, veiculo_id:form.veiculo.id, motorista_id:form.motorista.id, status:form.status, abastecimento:form.abastecimento||null }) });
+    await sb(`passageiros_viagem?viagem_id=eq.${id}`, { method:"DELETE", prefer:"" });
+    if (form.passageiros.length > 0) {
+      await sb("passageiros_viagem", { method:"POST", body: JSON.stringify(form.passageiros.map(p => ({ viagem_id:id, paciente_id:p.paciente.id, destino_id:p.destino.id, horario_chegada:p.horarioChegada, status:p.status||"indefinido", assinatura:p.assinatura||null }))) });
+    }
+  },
+  async atualizarStatusPassageiro(paxId, status) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ status }) }); },
+  async atualizarAssinatura(paxId, assinatura) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ assinatura }) }); },
+  async atualizarAbastecimento(viagemId, abastecimento) { await sb(`viagens?id=eq.${viagemId}`, { method:"PATCH", body: JSON.stringify({ abastecimento }) }); },
+  async deletar(id) { await sb(`viagens?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+};
+
+export function mapPaciente(p) { if(!p) return null; return { id:p.id, nome:p.nome, cpf:p.cpf, telefone:p.telefone, dataNasc:p.data_nasc }; }
+export function mapDestino(d) { if(!d) return null; return { id:d.id, nome:d.nome, cidade:d.cidade, especialidade:d.especialidade, endereco:d.endereco, telefone:d.telefone }; }
+export function mapMotorista(m) { if(!m) return null; return { id:m.id, nome:m.nome, cnh:m.cnh, telefone:m.telefone, categoriaCnh:m.categoria_cnh }; }
+export function mapVeiculo(v) { if(!v) return null; return { id:v.id, placa:v.placa, modelo:v.modelo, capacidade:v.capacidade, tipo:v.tipo, ano:v.ano, cor:v.cor, kmAtual:v.km_atual, combustivel:v.combustivel, consumoMedio:v.consumo_medio }; }
+
+export const TODAY = new Date().toISOString().split("T")[0];
 export const STATUS_CONFIG = {
   indefinido:{ label:"Indefinido", color:"#94a3b8", bg:"#1e293b", next:"embarcado"  },
   embarcado: { label:"Embarcado",  color:"#38bdf8", bg:"#0c2d48", next:"entregue"   },
@@ -17,70 +112,3 @@ export const VIAGEM_STATUS = {
 export const COMBUSTIVEIS = ["Gasolina","Etanol","Diesel","GNV","Elétrico"];
 export const fmtDate = d => { if(!d) return ""; const [y,m,day]=d.split("-"); return `${day}/${m}/${y}`; };
 export const fmtCurrency = v => "R$ "+Number(v||0).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
-
-export const INIT_PACIENTES = [
-  { id:1, nome:"Maria Aparecida Silva",  cpf:"123.456.789-00", telefone:"(67) 99123-4567", dataNasc:"1958-04-12" },
-  { id:2, nome:"João Pedro Oliveira",    cpf:"234.567.890-11", telefone:"(67) 99234-5678", dataNasc:"1965-07-22" },
-  { id:3, nome:"Ana Claudia Ferreira",   cpf:"345.678.901-22", telefone:"(67) 99345-6789", dataNasc:"1972-01-05" },
-  { id:4, nome:"Carlos Eduardo Santos",  cpf:"456.789.012-33", telefone:"(67) 99456-7890", dataNasc:"1980-11-30" },
-  { id:5, nome:"Luiza Helena Costa",     cpf:"567.890.123-44", telefone:"(67) 99567-8901", dataNasc:"1950-03-18" },
-  { id:6, nome:"Antonio Jose Pereira",   cpf:"678.901.234-55", telefone:"(67) 99678-9012", dataNasc:"1945-09-01" },
-  { id:7, nome:"Rosaria Batista Lima",   cpf:"789.012.345-66", telefone:"(67) 99789-0123", dataNasc:"1963-06-14" },
-  { id:8, nome:"Francisco Alves Souza", cpf:"890.123.456-77", telefone:"(67) 99890-1234", dataNasc:"1975-12-08" },
-];
-export const INIT_DESTINOS = [
-  { id:1, nome:"Hospital Regional de Campo Grande", cidade:"Campo Grande", especialidade:"Geral",        endereco:"Av. Ceara, 3253",          telefone:"(67) 3312-1000" },
-  { id:2, nome:"HEMOSUL - Hemocentro",              cidade:"Campo Grande", especialidade:"Hematologia",  endereco:"Av. Fernando Correa, 1304", telefone:"(67) 3313-3700" },
-  { id:3, nome:"FUNSAU - Clinica Nefrologia",       cidade:"Campo Grande", especialidade:"Nefrologia",   endereco:"Rua Ceara, 1702",           telefone:"(67) 3314-0800" },
-  { id:4, nome:"Hospital do Cancer Alfredo Abrao",  cidade:"Campo Grande", especialidade:"Oncologia",    endereco:"Rua A. M. Coelho, 245",     telefone:"(67) 3329-9600" },
-  { id:5, nome:"Santa Casa de Campo Grande",        cidade:"Campo Grande", especialidade:"Cardiologia",  endereco:"Rua General Mello, 1580",   telefone:"(67) 3322-4000" },
-  { id:6, nome:"APAE Campo Grande",                 cidade:"Campo Grande", especialidade:"Reabilitacao", endereco:"Rua Taquarussu, 261",       telefone:"(67) 3387-7700" },
-  { id:7, nome:"UDI Hospital",                      cidade:"Campo Grande", especialidade:"Ortopedia",    endereco:"Av. Mato Grosso, 1572",     telefone:"(67) 3041-7000" },
-  { id:8, nome:"Clinica de Olhos Visao+",           cidade:"Campo Grande", especialidade:"Oftalmologia", endereco:"Rua 26 de Agosto, 503",     telefone:"(67) 3383-0000" },
-];
-export const INIT_MOTORISTAS = [
-  { id:1, nome:"Roberto Mendes",      cnh:"12345678900", telefone:"(67) 99111-2222", categoriaCnh:"D" },
-  { id:2, nome:"Paulo Henrique Dias", cnh:"98765432100", telefone:"(67) 99333-4444", categoriaCnh:"B" },
-  { id:3, nome:"Sonia Maria Ramos",   cnh:"11122233344", telefone:"(67) 99555-6666", categoriaCnh:"D" },
-];
-export const INIT_VEICULOS = [
-  { id:1, placa:"ABC-1234", modelo:"Fiat Doblo",         capacidade:5,  tipo:"Carro",       ano:2022, cor:"Branco", kmAtual:45200, combustivel:"Etanol",  consumoMedio:12 },
-  { id:2, placa:"DEF-5678", modelo:"VW Spin",            capacidade:7,  tipo:"Van Pequena", ano:2021, cor:"Prata",  kmAtual:78300, combustivel:"Gasolina", consumoMedio:10 },
-  { id:3, placa:"GHI-9012", modelo:"Mercedes Sprinter",  capacidade:15, tipo:"Van Grande",  ano:2023, cor:"Branco", kmAtual:32100, combustivel:"Diesel",   consumoMedio:9  },
-  { id:4, placa:"JKL-3456", modelo:"Micro-onibus Volare",capacidade:21, tipo:"Micro-onibus",ano:2020, cor:"Branco", kmAtual:96500, combustivel:"Diesel",   consumoMedio:7  },
-];
-export const INIT_ADMINS = [
-  { id:1, nome:"Secretaria Ana Paula", email:"ana@saude.gov.br", cargo:"Coordenadora" },
-];
-export const INIT_VIAGENS = [
-  { id:1, data:"2026-03-02", horarioSaida:"05:30", veiculo:INIT_VEICULOS[1], motorista:INIT_MOTORISTAS[0],
-    passageiros:[
-      { id:1, paciente:INIT_PACIENTES[0], destino:INIT_DESTINOS[3], horarioChegada:"08:00", status:"embarcado",  assinatura:null },
-      { id:2, paciente:INIT_PACIENTES[1], destino:INIT_DESTINOS[0], horarioChegada:"08:30", status:"indefinido", assinatura:null },
-      { id:3, paciente:INIT_PACIENTES[2], destino:INIT_DESTINOS[1], horarioChegada:"07:45", status:"entregue",   assinatura:"data:image/png;base64,assinado" },
-      { id:4, paciente:INIT_PACIENTES[3], destino:INIT_DESTINOS[4], horarioChegada:"09:00", status:"pronto",     assinatura:"data:image/png;base64,assinado" },
-    ], status:"em_andamento", abastecimento:null },
-  { id:2, data:"2026-03-04", horarioSaida:"06:00", veiculo:INIT_VEICULOS[0], motorista:INIT_MOTORISTAS[0],
-    passageiros:[
-      { id:5, paciente:INIT_PACIENTES[4], destino:INIT_DESTINOS[2], horarioChegada:"09:00", status:"indefinido", assinatura:null },
-      { id:6, paciente:INIT_PACIENTES[5], destino:INIT_DESTINOS[5], horarioChegada:"09:30", status:"indefinido", assinatura:null },
-    ], status:"agendada", abastecimento:null },
-  { id:3, data:"2026-03-06", horarioSaida:"05:00", veiculo:INIT_VEICULOS[2], motorista:INIT_MOTORISTAS[0],
-    passageiros:[
-      { id:7, paciente:INIT_PACIENTES[6], destino:INIT_DESTINOS[6], horarioChegada:"07:30", status:"indefinido", assinatura:null },
-    ], status:"agendada", abastecimento:null },
-  { id:4, data:"2026-03-01", horarioSaida:"05:00", veiculo:INIT_VEICULOS[2], motorista:INIT_MOTORISTAS[0],
-    passageiros:[
-      { id:8, paciente:INIT_PACIENTES[6], destino:INIT_DESTINOS[6], horarioChegada:"07:30", status:"recolhido", assinatura:"data:image/png;base64,assinado" },
-      { id:9, paciente:INIT_PACIENTES[7], destino:INIT_DESTINOS[7], horarioChegada:"08:00", status:"recolhido", assinatura:"data:image/png;base64,assinado" },
-    ], status:"concluida", abastecimento:{ litros:45, valorLitro:5.89, kmInicial:31800, kmFinal:32100, combustivel:"Diesel", posto:"Posto BR Jardim", nota:"NF-1234" } },
-  { id:5, data:"2026-02-28", horarioSaida:"05:30", veiculo:INIT_VEICULOS[1], motorista:INIT_MOTORISTAS[1],
-    passageiros:[
-      { id:10, paciente:INIT_PACIENTES[0], destino:INIT_DESTINOS[1], horarioChegada:"08:00", status:"recolhido", assinatura:"data:image/png;base64,assinado" },
-      { id:11, paciente:INIT_PACIENTES[4], destino:INIT_DESTINOS[2], horarioChegada:"09:00", status:"ausente",   assinatura:null },
-    ], status:"concluida", abastecimento:{ litros:30, valorLitro:5.79, kmInicial:78000, kmFinal:78300, combustivel:"Gasolina", posto:"Posto Shell Jardim", nota:"NF-1198" } },
-];
-export const INIT_ABASTECIMENTOS = [
-  { id:1, data:"2026-03-01", viagemId:4, veiculoId:3, motorista:"Roberto Mendes", litros:45, valorLitro:5.89, total:265.05, kmInicial:31800, kmFinal:32100, combustivel:"Diesel", posto:"Posto BR Jardim", nota:"NF-1234" },
-  { id:2, data:"2026-02-28", viagemId:5, veiculoId:2, motorista:"Paulo Henrique Dias", litros:30, valorLitro:5.79, total:173.70, kmInicial:78000, kmFinal:78300, combustivel:"Gasolina", posto:"Posto Shell Jardim", nota:"NF-1198" },
-];
