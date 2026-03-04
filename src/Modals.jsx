@@ -220,14 +220,14 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
               </div>
             </div>
             <button onClick={()=>setForm(f=>({...f,passageiros:f.passageiros.filter((_,j)=>j!==i)}))} style={{ background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18 }}>×</button>
-          </div>
+            </div>
           {p.acompanhantes?.length>0 && (
             <div style={{ paddingLeft:14,marginTop:4 }}>
               {p.acompanhantes.map(a=>(
                 <div key={a.id} style={{ fontSize:11,color:"#94a3b8",padding:"2px 0" }}>👤 {a.nome}</div>
               ))}
             </div>
-          )}
+          )}          )}
         ))}
       </>}
       <div style={{ display:"flex", gap:10, marginTop:12 }}>
