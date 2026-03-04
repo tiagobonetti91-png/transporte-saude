@@ -21,7 +21,7 @@ const GS = `
 function Loading({ msg="Carregando..." }) {
   return (
     <div style={{ minHeight:"100vh", background:"#050c18", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans',sans-serif" }}>
-      <div style={{ fontSize:48, marginBottom:20 }}>🚑</div>
+      <div style={{ fontSize:34,margin:"0 auto 14px" }}><img src="/logo.png" style={{width:52,height:52,borderRadius:12,objectFit:"cover"}}/></div>
       <div style={{ fontSize:16, color:"#38bdf8", fontWeight:600 }}>{msg}</div>
       <div style={{ fontSize:12, color:"#475569", marginTop:8 }}>Aguarde...</div>
     </div>

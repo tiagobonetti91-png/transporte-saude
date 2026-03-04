@@ -45,7 +45,7 @@ export default function LoginScreen({ onLogin }) {
       <div style={{ background:"#0a1628", borderRadius:24, padding:36, width:"100%", maxWidth:400, border:"1px solid #1e3a5f" }}>
         {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:28 }}>
-          <div style={{ width:72,height:72,borderRadius:20,background:"linear-gradient(135deg,#3b82f6,#10b981)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,margin:"0 auto 14px" }}>🚑</div>
+          <div style={{ width:72,height:72,borderRadius:20,background:"linear-gradient(135deg,#3b82f6,#10b981)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,margin:"0 auto 14px" }}><img src="/logo.png" style={{width:52,height:52,borderRadius:12,objectFit:"cover"}}/></div>
           <div style={{ fontSize:10,color:"#64748b",letterSpacing:3,textTransform:"uppercase",marginBottom:4 }}>Secretaria Municipal de Saúde</div>
           <div style={{ fontSize:22,fontWeight:800,color:"#fff",marginBottom:2 }}>TransporteSaúde</div>
           <div style={{ fontSize:12,color:"#475569" }}>Sistema de Controle de Passageiros</div>
