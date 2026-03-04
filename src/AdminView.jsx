@@ -25,8 +25,8 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
   function crudDelete(key, id) {
     if(window.confirm("Confirma a exclusão?")) setDb(prev=>({...prev,[key]:prev[key].filter(x=>x.id!==id)}));
   }
-  function saveViagem(form) {
-    if(form.id) setViagens(prev=>prev.map(v=>v.id===form.id?{...v,...form}:v));
+function saveViagem(form) {
+    if(form.id) setViagens(prev=>prev.map(v=>v.id===parseInt(form.id)?{...v,...form}:v));
     else setViagens(prev=>[...prev,{...form,id:Math.max(0,...prev.map(v=>v.id))+1,abastecimento:null}]);
     closeModal();
   }
