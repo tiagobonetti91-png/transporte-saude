@@ -2,11 +2,79 @@
 const SUPABASE_URL = "https://vekpgebyviazxongeuaa.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZla3BnZWJ5dmlhenhvbmdldWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjY1MTgsImV4cCI6MjA4ODIwMjUxOH0.eFkmSZD9jeUt7mHPOi-J8zOdjj6EWGBf3a2p8MVC6uw";
 
+// ── Supabase Auth Client ──────────────────────────────────────────────────────
+export const supabase = (() => {
+  const URL = "https://vekpgebyviazxongeuaa.supabase.co";
+  const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZla3BnZWJ5dmlhenhvbmdldWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjY1MTgsImV4cCI6MjA4ODIwMjUxOH0.eFkmSZD9jeUt7mHPOi-J8zOdjj6EWGBf3a2p8MVC6uw";
+  const BASE_HEADERS = { "apikey": KEY, "Content-Type": "application/json" };
+  let _session = null;
+  try { const s = localStorage.getItem("ts_session"); if (s) _session = JSON.parse(s); } catch(e) {}
+
+  function getToken() { return _session?.access_token || KEY; }
+  function authHeaders() { return { ...BASE_HEADERS, "Authorization": `Bearer ${getToken()}` }; }
+  function saveSession(s) { _session = s; try { if(s) localStorage.setItem("ts_session", JSON.stringify(s)); else localStorage.removeItem("ts_session"); } catch(e) {} }
+
+  return {
+    auth: {
+      getToken,
+      async signInWithPassword({ email, password }) {
+        const res = await fetch(`${URL}/auth/v1/token?grant_type=password`, { method:"POST", headers: BASE_HEADERS, body: JSON.stringify({ email, password }) });
+        const data = await res.json();
+        if (!res.ok) return { data: null, error: data };
+        saveSession(data);
+        return { data: { user: data.user, session: data }, error: null };
+      },
+      async signOut() {
+        try { await fetch(`${URL}/auth/v1/logout`, { method:"POST", headers: authHeaders() }); } catch(e) {}
+        saveSession(null);
+      },
+      async getSession() {
+        if (!_session) return { data: { session: null } };
+        const exp = _session.expires_at;
+        if (exp && (exp - Date.now()/1000) < 60) {
+          try {
+            const res = await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`, { method:"POST", headers: BASE_HEADERS, body: JSON.stringify({ refresh_token: _session.refresh_token }) });
+            if (res.ok) { saveSession(await res.json()); }
+            else { saveSession(null); return { data: { session: null } }; }
+          } catch(e) { saveSession(null); return { data: { session: null } }; }
+        }
+        return { data: { session: _session, user: _session?.user } };
+      }
+    },
+    from(table) {
+      const h = authHeaders();
+      const base = `${URL}/rest/v1/${table}`;
+      return {
+        select(cols = "*") {
+          let url = `${base}?select=${cols}`;
+          return {
+            eq(col, val) { url += `&${col}=eq.${val}`; return this; },
+            order(col, opts={}) { url += `&order=${col}.${opts.ascending===false?"desc":"asc"}`; return this; },
+            single() {
+              return fetch(url, { headers: { ...h, "Accept": "application/vnd.pgrst.object+json" } })
+                .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)))
+                .then(data => ({ data, error: null }))
+                .catch(error => ({ data: null, error }));
+            },
+            then(resolve, reject) {
+              return fetch(url, { headers: h })
+                .then(r => r.json().then(d => ({ data: d, error: r.ok ? null : d })))
+                .then(resolve, reject);
+            }
+          };
+        }
+      };
+    }
+  };
+})();
+
+
 async function sb(path, options = {}) {
+  const token = supabase.auth.getToken();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
       "apikey": SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Authorization": `Bearer ${token}`,
       "Content-Type": "application/json",
       "Prefer": options.prefer !== undefined ? options.prefer : "return=representation",
       ...options.headers,
