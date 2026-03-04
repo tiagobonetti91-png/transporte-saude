@@ -220,6 +220,7 @@ export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, o
               </div>
             </div>
             <button onClick={()=>setForm(f=>({...f,passageiros:f.passageiros.filter((_,j)=>j!==i)}))} style={{ background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18 }}>×</button>
+          </div>
           {p.acompanhantes?.length>0 && (
             <div style={{ paddingLeft:14,marginTop:4 }}>
               {p.acompanhantes.map(a=>(
