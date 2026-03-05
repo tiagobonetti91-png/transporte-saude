@@ -19,7 +19,7 @@ function gerarRelatorio(viagem) {
     const faltou = p.status==="ausente";
     const acompNomes = (p.acompanhantes||[]).map(a=>a.nome).join(", ");
     const assinImg = p.assinatura
-      ? '<img src="'+p.assinatura+'" style="height:30px;max-width:110px;"/>'
+      ? '<img src="'+p.assinatura+'" style="height:30px;max-width:110px;filter:invert(1) brightness(0);background:#fff;border-radius:4px;padding:2px;"/>'
       : '<span style="color:#9ca3af;font-size:11px">—</span>';
     const bgRow = faltou ? "background:#fef2f2" : (i%2===0 ? "background:#f8fafc" : "");
     const nameColor = faltou ? "#dc2626" : "#111827";
