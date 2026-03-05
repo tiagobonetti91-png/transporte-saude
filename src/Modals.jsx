@@ -306,9 +306,9 @@ export function ModalAssinatura({ passageiro, nomeOverride, onSave, onClose }) {
       if(stroke.length===0) return "";
       let d="M "+stroke[0].x+" "+stroke[0].y;
       stroke.slice(1).forEach(p=>{d+=" L "+p.x+" "+p.y;});
-      return '<path d="'+d+'" stroke="#38bdf8" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+      return '<path d="'+d+'" stroke="#111827" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
     }).join("");
-    const svg="data:image/svg+xml;base64,"+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160" style="background:#070f1f">'+paths+'</svg>');
+    const svg="data:image/svg+xml;base64,"+btoa('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160" style="background:#ffffff">'+paths+'</svg>');
     onSave(svg);
   }
 
@@ -321,14 +321,14 @@ export function ModalAssinatura({ passageiro, nomeOverride, onSave, onClose }) {
           : <div><div style={{ fontSize:14,fontWeight:600,color:"#e2e8f0" }}>{passageiro.paciente.nome}</div><div style={{ fontSize:12,color:"#64748b" }}>Destino: {passageiro.destino.nome}</div><div style={{ fontSize:12,color:"#a78bfa" }}>CPF: {passageiro.paciente.cpf}</div></div>
         }
       </div>
-      <div style={{ background:"#070f1f",border:"2px dashed #1e3a5f",borderRadius:12,marginBottom:14,position:"relative",overflow:"hidden",touchAction:"none" }}
+      <div style={{ background:"#f8fafc",border:"2px dashed #cbd5e1",borderRadius:12,marginBottom:14,position:"relative",overflow:"hidden",touchAction:"none" }}
         onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
         onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}>
         <svg width="100%" height="160" style={{ display:"block" }}>
           {points.map((stroke,i)=>stroke.length>1&&(
-            <polyline key={i} points={stroke.map(p=>p.x+","+p.y).join(" ")} stroke="#38bdf8" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline key={i} points={stroke.map(p=>p.x+","+p.y).join(" ")} stroke="#111827" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
           ))}
-          {!signed&&<text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#1e3a5f" fontSize="13" fontFamily="sans-serif">Assine aqui com o dedo</text>}
+          {!signed&&<text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" fill="#cbd5e1" fontSize="13" fontFamily="sans-serif">Assine aqui com o dedo</text>}
         </svg>
       </div>
       <div style={{ display:"flex", gap:10 }}>
