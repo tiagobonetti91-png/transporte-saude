@@ -4,6 +4,132 @@ import { STATUS_CONFIG, VIAGEM_STATUS, fmtDate, fmtCurrency, TODAY, apiPacientes
 import { ModalPaciente, ModalDestino, ModalMotorista, ModalVeiculo, ModalAdmin, ModalViagem } from './Modals.jsx';
 import Relatorios from './Relatorios.jsx';
 
+
+// ── Gerador de Relatório PDF ──────────────────────────────────────────────────
+function gerarRelatorio(viagem) {
+  const fmtDate = d => { if(!d) return ""; const [y,m,day]=d.split("-"); return day+"/"+m+"/"+y; };
+  const fmtCurr = v => "R$ "+Number(v||0).toFixed(2).replace(".",",");
+  const fmtTraj = t => (!t||t==="ida_volta")?"Ida e Volta":t==="ida"?"Somente Ida":"Somente Volta";
+  const totalAcomp = viagem.passageiros.reduce((a,p)=>a+(p.acompanhantes?.length||0),0);
+  const totalVagas = viagem.passageiros.reduce((a,p)=>a+1+(p.acompanhantes?.length||0),0);
+  const totalVai   = viagem.passageiros.filter(p=>p.status!=="ausente"&&(p.tipoTrajeto==="ida_volta"||p.tipoTrajeto==="ida"||!p.tipoTrajeto)).length;
+  const totalVolta = viagem.passageiros.filter(p=>p.status!=="ausente"&&(p.tipoTrajeto==="ida_volta"||p.tipoTrajeto==="volta")).length;
+
+  const linhas = viagem.passageiros.map((p,i) => {
+    const faltou = p.status==="ausente";
+    const acompNomes = (p.acompanhantes||[]).map(a=>a.nome).join(", ");
+    const assinImg = p.assinatura
+      ? '<img src="'+p.assinatura+'" style="height:30px;max-width:110px;"/>'
+      : '<span style="color:#9ca3af;font-size:11px">—</span>';
+    const bgRow = faltou ? "background:#fef2f2" : (i%2===0 ? "background:#f8fafc" : "");
+    const nameColor = faltou ? "#dc2626" : "#111827";
+    const textDecor = faltou ? "text-decoration:line-through" : "";
+    return (
+      "<tr style='"+bgRow+"'>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;font-weight:600;color:"+nameColor+";"+textDecor+"'>"+(i+1)+"</td>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;"+textDecor+"'>"+
+          "<div style='font-weight:600;color:"+nameColor+"'>"+(p.paciente?.nome||"")+"</div>"+
+          (acompNomes ? "<div style='font-size:11px;color:#6b7280'>Acomp: "+acompNomes+"</div>" : "")+
+        "</td>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#7c3aed;font-size:12px'>"+(p.destino?.nome||"")+"</td>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#d97706;font-weight:600;font-size:12px'>"+(p.horarioChegada||"")+"</td>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#059669'>"+fmtTraj(p.tipoTrajeto)+"</td>"+
+        "<td style='padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:center'>"+
+          (faltou ? "<span style='background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700'>Faltou</span>" : assinImg)+
+        "</td>"+
+      "</tr>"
+    );
+  }).join("");
+
+  const infoBoxes = [
+    {label:"Data",       value:fmtDate(viagem.data)},
+    {label:"Saída",      value:viagem.horarioSaida||"—"},
+    {label:"Motorista",  value:viagem.motorista?.nome||"—"},
+    {label:"Veículo",    value:(viagem.veiculo?.modelo||"")+" · "+(viagem.veiculo?.placa||"")},
+    {label:"KM Inicial", value:viagem.abastecimento?.kmInicial||"—"},
+    {label:"KM Final",   value:viagem.abastecimento?.kmFinal||"—"},
+  ].map(f =>
+    "<div style='background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e5e7eb'>"+
+      "<div style='font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px'>"+f.label+"</div>"+
+      "<div style='font-size:14px;font-weight:700;color:#111827'>"+f.value+"</div>"+
+    "</div>"
+  ).join("");
+
+  const statsBoxes = [
+    {label:"Total Passageiros", value:viagem.passageiros.length, color:"#1a56db"},
+    {label:"Acompanhantes",     value:totalAcomp,                color:"#7c3aed"},
+    {label:"Vão (ida)",         value:totalVai,                  color:"#059669"},
+    {label:"Voltam",            value:totalVolta,                color:"#d97706"},
+  ].map(s =>
+    "<div style='background:#f8fafc;border-radius:10px;padding:10px;text-align:center;border:1px solid #e5e7eb'>"+
+      "<div style='font-size:24px;font-weight:900;color:"+s.color+"'>"+s.value+"</div>"+
+      "<div style='font-size:10px;color:#9ca3af;margin-top:2px'>"+s.label+"</div>"+
+    "</div>"
+  ).join("");
+
+  const abastHtml = viagem.abastecimento?.total ? (
+    "<div style='background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:16px'>"+
+      "<div style='font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;margin-bottom:6px'>⛽ Abastecimento</div>"+
+      "<div style='display:flex;gap:24px;flex-wrap:wrap'>"+
+        "<span><b>"+(viagem.abastecimento.litros||"")+"L</b> de "+(viagem.abastecimento.combustivel||"")+"</span>"+
+        "<span>R$ "+Number(viagem.abastecimento.valorLitro||0).toFixed(2)+"/L</span>"+
+        "<span><b>Total: "+fmtCurr(viagem.abastecimento.total)+"</b></span>"+
+        (viagem.abastecimento.posto ? "<span>Posto: "+viagem.abastecimento.posto+"</span>" : "")+
+        (viagem.abastecimento.kmInicial&&viagem.abastecimento.kmFinal ? "<span>KM rodados: "+(viagem.abastecimento.kmFinal-viagem.abastecimento.kmInicial)+" km</span>" : "")+
+      "</div>"+
+    "</div>"
+  ) : "";
+
+  const statusLabel = viagem.status==="concluida"?"Concluída":viagem.status==="em_andamento"?"Em Andamento":"Agendada";
+  const statusColor = viagem.status==="concluida"?"#059669":viagem.status==="em_andamento"?"#d97706":"#1a56db";
+
+  const html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'/>"+
+    "<title>Relatório Viagem #"+viagem.id+"</title>"+
+    "<style>@page{size:A4;margin:18mm 14mm;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;font-size:13px;color:#111827;background:#fff;}@media print{.no-print{display:none;}}</style>"+
+    "</head><body>"+
+    "<div class='no-print' style='background:#1a56db;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px'>"+
+      "<span style='color:#fff;font-weight:700;font-size:15px'>📄 Relatório de Viagem #"+viagem.id+"</span>"+
+      "<button onclick='window.print()' style='background:#fff;color:#1a56db;border:none;padding:10px 24px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer'>🖨️ Imprimir / Salvar PDF</button>"+
+    "</div>"+
+    "<div style='padding:0 10px'>"+
+      "<div style='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid #1a56db'>"+
+        "<div>"+
+          "<div style='font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px'>Secretaria Municipal de Saúde</div>"+
+          "<div style='font-size:22px;font-weight:800;color:#1a56db'>TransporteSaúde</div>"+
+          "<div style='font-size:12px;color:#6b7280'>Relatório gerado em "+new Date().toLocaleString("pt-BR")+"</div>"+
+        "</div>"+
+        "<div style='text-align:right'>"+
+          "<div style='font-size:28px;font-weight:900;color:#111827'>Viagem #"+viagem.id+"</div>"+
+          "<div style='font-size:13px;color:"+statusColor+";font-weight:700;text-transform:uppercase'>"+statusLabel+"</div>"+
+        "</div>"+
+      "</div>"+
+      "<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px'>"+infoBoxes+"</div>"+
+      "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px'>"+statsBoxes+"</div>"+
+      abastHtml+
+      "<div style='font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px'>Lista de Passageiros</div>"+
+      "<table style='width:100%;border-collapse:collapse;border:1px solid #e5e7eb;overflow:hidden'>"+
+        "<thead><tr style='background:#1a56db;color:#fff'>"+
+          "<th style='padding:10px;text-align:left;font-size:11px;width:32px'>#</th>"+
+          "<th style='padding:10px;text-align:left;font-size:11px'>Paciente / Acompanhante</th>"+
+          "<th style='padding:10px;text-align:left;font-size:11px'>Destino</th>"+
+          "<th style='padding:10px;text-align:left;font-size:11px;width:64px'>Horário</th>"+
+          "<th style='padding:10px;text-align:left;font-size:11px;width:90px'>Trajeto</th>"+
+          "<th style='padding:10px;text-align:center;font-size:11px;width:130px'>Assinatura</th>"+
+        "</tr></thead>"+
+        "<tbody>"+linhas+"</tbody>"+
+      "</table>"+
+      "<div style='margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px'>"+
+        "<div><div style='border-top:1.5px solid #111827;padding-top:8px;font-size:12px;color:#6b7280;text-align:center'>Assinatura do Motorista<br/><b style=color:#111827>"+( viagem.motorista?.nome||"")+"</b></div></div>"+
+        "<div><div style='border-top:1.5px solid #111827;padding-top:8px;font-size:12px;color:#6b7280;text-align:center'>Responsável pela Secretaria</div></div>"+
+      "</div>"+
+      "<div style='margin-top:20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px'>TransporteSaúde · Secretaria Municipal de Saúde</div>"+
+    "</div></body></html>";
+
+  const win = window.open("","_blank","width=900,height=700");
+  win.document.write(html);
+  win.document.close();
+}
+
 export default function AdminView({ db, setDb, viagens, setViagens, onStatusChange, recarregar }) {
   const [tab, setTab] = useState("dashboard");
   const [modal, setModal] = useState(null);
@@ -232,6 +358,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
                     </div>
                     <div style={{ display:"flex",gap:8 }}>
                       <Btn small onClick={()=>setModal({type:"viagem",item:v})} color="#3b82f6">✏️ Editar</Btn>
+                      <Btn small onClick={()=>gerarRelatorio(v)} color="#7c3aed">📄 Relatório</Btn>
                       <Btn small danger onClick={()=>deleteViagem(v.id)}>🗑️ Excluir</Btn>
                     </div>
                   </div>

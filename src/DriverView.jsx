@@ -47,153 +47,6 @@ function ModalKm({ titulo, subtitulo, onSave, onClose }) {
   );
 }
 
-// ── Gerador de Relatório PDF (via janela de impressão) ────────────────────────
-function gerarRelatorio(viagem, motorista) {
-  const fmtTrajeto = t => (!t||t==="ida_volta")?"Ida e Volta":t==="ida"?"Somente Ida":"Somente Volta";
-  const totalPax = viagem.passageiros.length;
-  const totalAcomp = viagem.passageiros.reduce((a,p)=>a+(p.acompanhantes?.length||0),0);
-  const totalVai = viagem.passageiros.filter(p=>p.status!=="ausente"&&(p.tipoTrajeto==="ida_volta"||p.tipoTrajeto==="ida"||!p.tipoTrajeto)).length;
-  const totalVolta = viagem.passageiros.filter(p=>p.status!=="ausente"&&(p.tipoTrajeto==="ida_volta"||p.tipoTrajeto==="volta")).length;
-
-  const linhasPax = viagem.passageiros.map((p,i) => {
-    const faltou = p.status==="ausente";
-    const acompNomes = (p.acompanhantes||[]).map(a=>a.nome).join(", ");
-    const assinaturaImg = p.assinatura ? `<img src="${p.assinatura}" style="height:32px;max-width:120px;"/>` : '<span style="color:#9ca3af;font-size:11px">—</span>';
-    return `
-      <tr style="${faltou?"background:#fef2f2;text-decoration:line-through;color:#9ca3af":"i%2===0?"background:#f8fafc":""}">
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-weight:600;color:${faltou?"#dc2626":"#111827"}">${i+1}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb">
-          <div style="font-weight:600;color:${faltou?"#dc2626":"#111827"}">${p.paciente?.nome||""}</div>
-          ${acompNomes?`<div style="font-size:11px;color:#6b7280">Acomp: ${acompNomes}</div>`:""}
-        </td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#7c3aed;font-size:12px">${p.destino?.nome||""}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;color:#d97706;font-weight:600;font-size:12px">${p.horarioChegada||""}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#059669">${fmtTrajeto(p.tipoTrajeto)}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;text-align:center">${faltou?'<span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700">Faltou</span>':assinaturaImg}</td>
-      </tr>
-    `;
-  }).join("");
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Relatório de Viagem #${viagem.id}</title>
-  <style>
-    @page { size: A4; margin: 18mm 14mm; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 13px; color: #111827; background: #fff; }
-    @media print { .no-print { display:none; } }
-  </style>
-</head>
-<body>
-  <!-- Botão imprimir (some na impressão) -->
-  <div class="no-print" style="background:#1a56db;padding:12px 20px;display:flex;align-items:center;justify-content:space-between">
-    <span style="color:#fff;font-weight:700;font-size:15px">📄 Relatório de Viagem #${viagem.id}</span>
-    <button onclick="window.print()" style="background:#fff;color:#1a56db;border:none;padding:10px 24px;borderRadius:8px;font-weight:700;font-size:14px;cursor:pointer;border-radius:8px">🖨️ Imprimir / Salvar PDF</button>
-  </div>
-
-  <div style="padding:10px 0">
-    <!-- Cabeçalho -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid #1a56db">
-      <div>
-        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px">Secretaria Municipal de Saúde</div>
-        <div style="font-size:22px;font-weight:800;color:#1a56db">TransporteSaúde</div>
-        <div style="font-size:12px;color:#6b7280">Relatório de Viagem — Gerado em ${new Date().toLocaleString("pt-BR")}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:28px;font-weight:900;color:#111827">Viagem #${viagem.id}</div>
-        <div style="font-size:13px;color:${viagem.status==="concluida"?"#059669":viagem.status==="em_andamento"?"#d97706":"#6b7280"};font-weight:700;text-transform:uppercase">${viagem.status==="concluida"?"✓ Concluída":viagem.status==="em_andamento"?"Em Andamento":"Agendada"}</div>
-      </div>
-    </div>
-
-    <!-- Info viagem -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">
-      ${[
-        {label:"Data",        value:fmtDate(viagem.data)},
-        {label:"Saída",       value:viagem.horarioSaida},
-        {label:"Motorista",   value:motorista?.nome||"—"},
-        {label:"Veículo",     value:`${viagem.veiculo?.modelo||""} · ${viagem.veiculo?.placa||""}`},
-        {label:"KM Inicial",  value:viagem.abastecimento?.kmInicial||"—"},
-        {label:"KM Final",    value:viagem.abastecimento?.kmFinal||"—"},
-      ].map(f=>`
-        <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e5e7eb">
-          <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">${f.label}</div>
-          <div style="font-size:14px;font-weight:700;color:#111827">${f.value}</div>
-        </div>
-      `).join("")}
-    </div>
-
-    <!-- Resumo passageiros -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
-      ${[
-        {label:"Total Passageiros", value:totalPax,  color:"#1a56db"},
-        {label:"Acompanhantes",     value:totalAcomp,color:"#7c3aed"},
-        {label:"Vão (ida)",         value:totalVai,  color:"#059669"},
-        {label:"Voltam",            value:totalVolta,color:"#d97706"},
-      ].map(s=>`
-        <div style="background:#f8fafc;border-radius:10px;padding:10px;text-align:center;border:1px solid #e5e7eb">
-          <div style="font-size:24px;font-weight:900;color:${s.color}">${s.value}</div>
-          <div style="font-size:10px;color:#9ca3af;margin-top:2px">${s.label}</div>
-        </div>
-      `).join("")}
-    </div>
-
-    ${viagem.abastecimento?.total?`
-    <!-- Abastecimento -->
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;margin-bottom:6px">⛽ Abastecimento</div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap">
-        <span><b>${viagem.abastecimento.litros}L</b> de ${viagem.abastecimento.combustivel||""}</span>
-        <span>R$ ${Number(viagem.abastecimento.valorLitro||0).toFixed(2)}/L</span>
-        <span><b>Total: ${fmtCurrency(viagem.abastecimento.total)}</b></span>
-        ${viagem.abastecimento.posto?`<span>Posto: ${viagem.abastecimento.posto}</span>`:""}
-        ${viagem.abastecimento.kmInicial&&viagem.abastecimento.kmFinal?`<span>KM rodados: ${viagem.abastecimento.kmFinal-viagem.abastecimento.kmInicial} km</span>`:""}
-      </div>
-    </div>`:""}
-
-    <!-- Tabela passageiros -->
-    <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Lista de Passageiros</div>
-    <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
-      <thead>
-        <tr style="background:#1a56db;color:#fff">
-          <th style="padding:10px;text-align:left;font-size:11px;width:32px">#</th>
-          <th style="padding:10px;text-align:left;font-size:11px">Paciente / Acompanhante</th>
-          <th style="padding:10px;text-align:left;font-size:11px">Destino</th>
-          <th style="padding:10px;text-align:left;font-size:11px;width:64px">Horário</th>
-          <th style="padding:10px;text-align:left;font-size:11px;width:90px">Trajeto</th>
-          <th style="padding:10px;text-align:center;font-size:11px;width:130px">Assinatura</th>
-        </tr>
-      </thead>
-      <tbody>${linhasPax}</tbody>
-    </table>
-
-    <!-- Assinatura motorista -->
-    <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px">
-      <div>
-        <div style="border-top:1.5px solid #111827;padding-top:8px;font-size:12px;color:#6b7280;text-align:center">
-          Assinatura do Motorista<br/><b style="color:#111827">${motorista?.nome||""}</b>
-        </div>
-      </div>
-      <div>
-        <div style="border-top:1.5px solid #111827;padding-top:8px;font-size:12px;color:#6b7280;text-align:center">
-          Responsável pela Secretaria
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-top:20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px">
-      TransporteSaúde · Secretaria Municipal de Saúde · Documento gerado automaticamente
-    </div>
-  </div>
-</body>
-</html>`;
-
-  const win = window.open("","_blank","width=900,height=700");
-  win.document.write(html);
-  win.document.close();
-}
-
 // ── Componente principal ──────────────────────────────────────────────────────
 export default function DriverView({ viagens, setViagens, onStatusChange, onAssinatura, onAbastecimento, motoristaId, motoristas }) {
   const [tab,setTab]=useState("roteiro");
@@ -333,7 +186,7 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                     {agendada&&<button onClick={()=>setKmModal({viagemId:viagem.id,tipo:"iniciar"})} style={{ flex:1,padding:"11px",background:T.blue,color:"#fff",border:"none",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit" }}>▶ Iniciar Viagem</button>}
                     {emAndamento&&<button onClick={()=>setKmModal({viagemId:viagem.id,tipo:"finalizar"})} style={{ flex:1,padding:"11px",background:T.green,color:"#fff",border:"none",borderRadius:12,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit" }}>✓ Finalizar Viagem</button>}
                     <button onClick={()=>setAbastModal({viagemId:viagem.id,veiculo:viagem.veiculo})} style={{ padding:"11px 14px",background:viagem.abastecimento?.total?"#f0fdf4":"#f8fafc",color:viagem.abastecimento?.total?T.green:T.textSub,border:"1px solid "+(viagem.abastecimento?.total?"#86efac":"#e5e7eb"),borderRadius:12,fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>⛽</button>
-                    {(emAndamento||concluida)&&<button onClick={()=>gerarRelatorio(viagem,motorista)} style={{ padding:"11px 14px",background:"#f5f3ff",color:T.purple,border:"1px solid #c4b5fd",borderRadius:12,fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>📄 Relatório</button>}
+
                   </div>
                 </div>
 
@@ -421,7 +274,7 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                   <div style={{ background:"#f0fdf4",border:"1px solid #86efac",borderRadius:14,padding:16 }}>
                     <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
                       <div style={{ fontSize:14,fontWeight:700,color:T.green }}>✅ Viagem Concluída</div>
-                      <button onClick={()=>gerarRelatorio(viagem,motorista)} style={{ padding:"8px 16px",background:"#fff",color:T.purple,border:"1px solid #c4b5fd",borderRadius:10,fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>📄 Relatório PDF</button>
+
                     </div>
                     <div style={{ display:"flex",flexWrap:"wrap",gap:6 }}>
                       {viagem.passageiros.map(p=>(
@@ -485,7 +338,7 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                   <div style={{ fontSize:12,color:T.textSub }}>{v.veiculo?.modelo} · {v.horarioSaida} · {v.passageiros.length} passageiro(s)</div>
                 </div>
                 <div style={{ display:"flex",gap:6,alignItems:"center" }}>
-                  <button onClick={()=>gerarRelatorio(v,motorista)} style={{ padding:"6px 12px",background:"#f5f3ff",color:T.purple,border:"1px solid #c4b5fd",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>📄</button>
+
                   <div style={{ background:v.status==="concluida"?"#f0fdf4":"#f9fafb",border:"1px solid "+(v.status==="concluida"?"#86efac":"#e5e7eb"),borderRadius:10,padding:"4px 12px",fontSize:11,fontWeight:700,color:v.status==="concluida"?T.green:T.textSub }}>
                     {v.status==="concluida"?"Concluída":"Cancelada"}
                   </div>
