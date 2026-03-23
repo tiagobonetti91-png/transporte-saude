@@ -68,7 +68,6 @@ export const supabase = (() => {
   };
 })();
 
-
 async function sb(path, options = {}) {
   const token = supabase.auth.getToken();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -131,7 +130,8 @@ export const apiViagens = {
       veiculo: mapVeiculo((veiculos||[]).find(x => x.id === v.veiculo_id)),
       motorista: mapMotorista((motoristas||[]).find(x => x.id === v.motorista_id)),
       passageiros: (passageiros||[]).filter(p => p.viagem_id === v.id).map(p => ({
-        id: p.id, status: p.status, horarioChegada: p.horario_chegada, localEmbarque: p.local_embarque, tipoTrajeto: p.tipo_trajeto||"ida_volta", acompanhantes: p.acompanhantes||[], assinatura: p.assinatura,
+        id: p.id, status: p.status, horarioChegada: p.horario_chegada, localEmbarque: p.local_embarque,
+        tipoTrajeto: p.tipo_trajeto||"ida_volta", acompanhantes: p.acompanhantes||[], assinatura: p.assinatura,
         paciente: mapPaciente((pacientes||[]).find(x => x.id === p.paciente_id)),
         destino: mapDestino((destinos||[]).find(x => x.id === p.destino_id)),
       })),
@@ -155,6 +155,29 @@ export const apiViagens = {
   async atualizarAssinatura(paxId, assinatura) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ assinatura }) }); },
   async atualizarAbastecimento(viagemId, abastecimento) { await sb(`viagens?id=eq.${viagemId}`, { method:"PATCH", body: JSON.stringify({ abastecimento }) }); },
   async deletar(id) { await sb(`viagens?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
+  async moverPassageiro(paxId, novaViagemId) {
+    await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ viagem_id: novaViagemId, status:"indefinido" }) });
+  },
+};
+
+// ── API de Transferências ─────────────────────────────────────────────────────
+export const apiTransferencias = {
+  async listar() { return sb("transferencias?select=*&order=created_at.desc"); },
+  async listarPendentes(motoristaDestinoId) {
+    return sb(`transferencias?motorista_destino_id=eq.${motoristaDestinoId}&status=eq.pendente&select=*&order=created_at.desc`);
+  },
+  async criar(d) {
+    return sb("transferencias", { method:"POST", body: JSON.stringify({
+      passageiro_id: d.passageiroId,
+      viagem_origem_id: d.viagemOrigemId,
+      viagem_destino_id: d.viagemDestinoId,
+      motorista_origem_id: d.motoristaOrigemId,
+      motorista_destino_id: d.motoristaDestinoId,
+      status: "pendente",
+    })});
+  },
+  async aceitar(id) { return sb(`transferencias?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ status:"aceita" }) }); },
+  async recusar(id) { return sb(`transferencias?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ status:"recusada" }) }); },
 };
 
 export function mapPaciente(p) { if(!p) return null; return { id:p.id, nome:p.nome, cpf:p.cpf, telefone:p.telefone, dataNasc:p.data_nasc }; }
@@ -174,9 +197,9 @@ export const STATUS_CONFIG = {
 export const VIAGEM_STATUS = {
   agendada:    { label:"Agendada",     color:"#38bdf8", bg:"#0c2d48" },
   em_andamento:{ label:"Em Andamento", color:"#fbbf24", bg:"#2d1a00" },
-  concluida:   { label:"Concluída",    color:"#34d399", bg:"#052e1c" },
+  concluida:   { label:"Concluida",    color:"#34d399", bg:"#052e1c" },
   cancelada:   { label:"Cancelada",    color:"#f87171", bg:"#2d0000" },
 };
-export const COMBUSTIVEIS = ["Gasolina","Etanol","Diesel","GNV","Elétrico"];
+export const COMBUSTIVEIS = ["Gasolina","Etanol","Diesel","GNV","Eletrico"];
 export const fmtDate = d => { if(!d) return ""; const [y,m,day]=d.split("-"); return `${day}/${m}/${y}`; };
 export const fmtCurrency = v => "R$ "+Number(v||0).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
