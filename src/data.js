@@ -86,25 +86,25 @@ async function sb(path, options = {}) {
 }
 
 export const apiPacientes = {
-  async listar() { return sb("pacientes?select=*&order=nome"); },
+  async listar() { return sb("pacientes_ativos?select=*&order=nome"); },
   async criar(d) { return sb("pacientes", { method:"POST", body: JSON.stringify({ nome:d.nome, cpf:d.cpf, telefone:d.telefone, data_nasc:d.dataNasc||null }) }); },
   async atualizar(id, d) { return sb(`pacientes?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cpf:d.cpf, telefone:d.telefone, data_nasc:d.dataNasc||null }) }); },
   async deletar(id) { return sb(`pacientes?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
 };
 export const apiDestinos = {
-  async listar() { return sb("destinos?select=*&order=nome"); },
+  async listar() { return sb("destinos_ativos?select=*&order=nome"); },
   async criar(d) { return sb("destinos", { method:"POST", body: JSON.stringify({ nome:d.nome, cidade:d.cidade, especialidade:d.especialidade, endereco:d.endereco, telefone:d.telefone }) }); },
   async atualizar(id, d) { return sb(`destinos?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cidade:d.cidade, especialidade:d.especialidade, endereco:d.endereco, telefone:d.telefone }) }); },
   async deletar(id) { return sb(`destinos?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
 };
 export const apiMotoristas = {
-  async listar() { return sb("motoristas?select=*&order=nome"); },
+  async listar() { return sb("motoristas_ativos?select=*&order=nome"); },
   async criar(d) { return sb("motoristas", { method:"POST", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) }); },
   async atualizar(id, d) { return sb(`motoristas?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) }); },
   async deletar(id) { return sb(`motoristas?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
 };
 export const apiVeiculos = {
-  async listar() { return sb("veiculos?select=*&order=placa"); },
+  async listar() { return sb("veiculos_ativos?select=*&order=placa"); },
   async criar(d) { return sb("veiculos", { method:"POST", body: JSON.stringify({ placa:d.placa, modelo:d.modelo, capacidade:d.capacidade, tipo:d.tipo, ano:d.ano, cor:d.cor, km_atual:d.kmAtual||0, combustivel:d.combustivel, consumo_medio:d.consumoMedio }) }); },
   async atualizar(id, d) { return sb(`veiculos?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ placa:d.placa, modelo:d.modelo, capacidade:d.capacidade, tipo:d.tipo, ano:d.ano, cor:d.cor, km_atual:d.kmAtual||0, combustivel:d.combustivel, consumo_medio:d.consumoMedio }) }); },
   async deletar(id) { return sb(`veiculos?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
@@ -120,10 +120,10 @@ export const apiViagens = {
     const [viagens, passageiros, motoristas, veiculos, pacientes, destinos] = await Promise.all([
       sb("viagens?select=*&order=data.desc,horario_saida"),
       sb("passageiros_viagem?select=*"),
-      sb("motoristas?select=*"),
-      sb("veiculos?select=*"),
-      sb("pacientes?select=*"),
-      sb("destinos?select=*"),
+      sb("motoristas_ativos?select=*"),
+      sb("veiculos_ativos?select=*"),
+      sb("pacientes_ativos?select=*"),
+      sb("destinos_ativos?select=*"),
     ]);
     return (viagens||[]).map(v => ({
       id: v.id, data: v.data, horarioSaida: v.horario_saida, status: v.status, abastecimento: v.abastecimento,
