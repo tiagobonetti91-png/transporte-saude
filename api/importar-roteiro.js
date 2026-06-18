@@ -216,7 +216,7 @@ function joinWrappedLines(lines) {
     const current = cleanText(line);
     if (!current) continue;
 
-    const isContinuation = !current.startsWith("+") && !current.match(/^\+?[A-ZÀ-Ú][A-ZÀ-Ú' ]+\s+\d{11}\b/) &&
+    const isContinuation = !current.startsWith("+") && !current.match(/^\+?[^0-9\n]{3,}?\s+\d{11}\b/) &&
       !/^OBS\b/i.test(current) &&
       !/^(Relatorio|Relatório|rangsaude|terça|segunda|quarta|quinta|sexta|sábado|domingo)/i.test(current) &&
       joined.length > 0;
@@ -232,8 +232,9 @@ function extractPassengerRecords(text) {
     .replace(/\s+OBS\s*:/gi, " OBS: ")
     .replace(/\s+Relat[oó]rio gerado[\s\S]*$/i, "");
 
-  const normalRe = new RegExp(`\\+?[A-ZÀ-ÚÃ€-Ãš][A-ZÀ-ÚÃ€-Ãš' ]{2,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
-  const vercelRe = new RegExp(`\\+?[A-ZÀ-ÚÃ€-Ãš][A-ZÀ-ÚÃ€-Ãš' ]{2,}?\\s+\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4}\\s+(?:I\\s*\\/\\s*V|I|V)\\s+\\d{11}\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  // Evita faixas de letras acentuadas em regex, que podem quebrar no Vercel por encoding.
+  const normalRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  const vercelRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4}\\s+(?:I\\s*\\/\\s*V|I|V)\\s+\\d{11}\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
 
   return [...(source.match(normalRe) || []), ...(source.match(vercelRe) || [])];
 }
