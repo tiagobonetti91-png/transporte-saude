@@ -86,7 +86,8 @@ function findPhone(text) {
 }
 
 function splitTrips(text) {
-  const matches = [...text.matchAll(/(?:^|\n)\s*(?:\d{4,6})\s*(?=\n)/g)];
+  const re = /(?:Secretaria Municipal[\s\S]*?Número da Viagem\s*(?:CNPJ:\s*\d+\s*)?(\d{4,6})|(?:^|\n)\s*(\d{4,6})\s*(?=\n))/gi;
+  const matches = [...text.matchAll(re)];
   if (matches.length <= 1) return [text];
 
   return matches.map((match, index) => {
@@ -178,6 +179,31 @@ function joinWrappedLines(lines) {
   return joined;
 }
 
+function extractPassengerRecords(text) {
+  const source = cleanText(text)
+    .replace(/\s+OBS\s*:/gi, " OBS: ")
+    .replace(/\s+Relat[oó]rio gerado[\s\S]*$/i, "");
+
+  const rowRe = new RegExp(`\\+?[A-ZÀ-Ú][A-ZÀ-Ú' ]{2,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  return source.match(rowRe) || [];
+}
+
+function parsePassengersFromText(tableText, fallbackDestino) {
+  const passageiros = [];
+  const records = extractPassengerRecords(tableText);
+
+  for (const record of records) {
+    if (record.trim().startsWith("+")) {
+      if (passageiros.length) passageiros[passageiros.length - 1].acompanhantes.push(parseCompanionLine(record));
+      continue;
+    }
+
+    const passageiro = parsePassengerLine(record, fallbackDestino);
+    if (passageiro) passageiros.push(passageiro);
+  }
+
+  return passageiros;
+}
 function parseTrip(block, index) {
   const numeroMatch = block.match(/(?:^|\n)\s*(\d{4,6})\s*(?=\n)/);
   const destinoGeral = getHeaderValue(block, /Destino:\s*(.+?)\s+Objetivo/i);
@@ -194,7 +220,7 @@ function parseTrip(block, index) {
   const tableText = tableStart >= 0 ? block.slice(tableStart).replace(/^.*PASSAGEIRO.*DATA\/HORA/i, "") : block;
   const rawLines = tableText.split(/\n+/).map(cleanText).filter(Boolean);
   const lines = joinWrappedLines(rawLines);
-  const passageiros = [];
+  let passageiros = [];
 
   for (const line of lines) {
     if (/^OBS\b/i.test(line)) continue;
@@ -209,6 +235,7 @@ function parseTrip(block, index) {
     if (passageiro) passageiros.push(passageiro);
   }
 
+  if (!passageiros.length) passageiros = parsePassengersFromText(tableText, destinoGeral);
   return {
     numeroViagem: numeroMatch?.[1] || String(index + 1),
     data,
