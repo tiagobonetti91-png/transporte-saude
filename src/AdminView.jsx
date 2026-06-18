@@ -220,9 +220,40 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
   ];
 
   const allDates = [...new Set(viagens.map(v=>v.data))].sort().reverse();
+  const adminCss = `
+    .admin-shell{min-height:100vh;background:#f4f7fb;color:#0f172a;font-family:'DM Sans',sans-serif;padding-bottom:32px;}
+    .admin-header{background:#ffffff;border-bottom:1px solid #dbe4ef;padding:18px 220px 18px 24px;box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .admin-header-row{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;}
+    .admin-brand{display:flex;align-items:center;gap:14px;min-width:260px;}
+    .admin-brand-icon{width:46px;height:46px;border-radius:14px;background:#10b981;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 8px 20px rgba(16,185,129,.18);}
+    .admin-eyebrow{font-size:10px;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px;}
+    .admin-title{font-size:20px;font-weight:800;color:#0f172a;line-height:1.1;}
+    .admin-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;max-width:100%;}
+    .admin-action{border:none;border-radius:10px;padding:9px 13px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:700;white-space:nowrap;box-shadow:0 1px 2px rgba(15,23,42,.08);}
+    .admin-action.secondary{background:#eaf2ff;color:#1d4ed8;}
+    .admin-action.primary{background:#059669;color:#fff;}
+    .admin-tabs{display:flex;border-bottom:1px solid #dbe4ef;background:#ffffff;overflow-x:auto;padding:0 12px;}
+    .admin-tab{padding:14px 12px;background:none;border:none;white-space:nowrap;color:#64748b;border-bottom:2px solid transparent;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+    .admin-tab.active{color:#059669;border-bottom-color:#10b981;}
+    .admin-content{padding:26px 20px;max-width:1120px;margin:0 auto;}
+    .admin-section-title{font-size:11px;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;margin-top:4px;font-weight:800;}
+    .admin-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:26px;}
+    .admin-stat-card{background:#fff;border-radius:14px;padding:18px 16px;border:1px solid #dbe4ef;text-align:left;cursor:pointer;font-family:inherit;outline:none;min-height:122px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 26px rgba(15,23,42,.05);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;}
+    .admin-stat-card:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(15,23,42,.08);}
+    .admin-stat-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+    .admin-stat-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#f1f5f9;}
+    .admin-stat-value{font-size:32px;font-weight:900;line-height:1;}
+    .admin-stat-label{font-size:13px;color:#475569;font-weight:700;margin-top:12px;}
+    .admin-progress-empty{background:#fff;border:1px solid #dbe4ef;border-radius:14px;padding:18px;color:#64748b;font-size:13px;}
+    .admin-progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;}
+    .admin-progress-track{flex:1;height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;}
+    @media(max-width:980px){.admin-header{padding-right:24px}.admin-header-row{align-items:flex-start}.admin-actions{justify-content:flex-start;width:100%}.admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media(max-width:620px){.admin-header{padding:16px}.admin-title{font-size:18px}.admin-content{padding:18px 12px}.admin-stats-grid{grid-template-columns:1fr}.admin-action{flex:1}.admin-brand{min-width:0}.admin-tabs{padding:0 4px}.admin-tab{font-size:12px;padding:12px 10px;}}
+  `;
 
   return (
-    <div style={{ minHeight:"100vh", background:"#050c18", color:"#e2e8f0", fontFamily:"'DM Sans', sans-serif" }}>
+    <div className="admin-shell">
+      <style>{adminCss}</style>
       {/* Modais */}
       {modal?.type==="viagem"    && <ModalViagem item={modal.item} veiculos={db.veiculos} motoristas={db.motoristas} pacientes={db.pacientes} destinos={db.destinos} onSave={saveViagem} onClose={closeModal} salvando={salvando}/>}
       {modal?.type==="paciente"  && <ModalPaciente  item={modal.item} onSave={f=>crudSave("pacientes",f)}  onClose={closeModal}/>}
@@ -293,18 +324,18 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
       )}
 
       {/* Header */}
-      <div style={{ background:"linear-gradient(135deg,#0a1f35,#050c18)", padding:"18px 20px", borderBottom:"1px solid #10243b" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <div style={{ width:44,height:44,borderRadius:12,background:"linear-gradient(135deg,#10b981,#059669)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22 }}>🏥</div>
+      <div className="admin-header">
+        <div className="admin-header-row">
+          <div className="admin-brand">
+            <div className="admin-brand-icon">🏥</div>
             <div>
-              <div style={{ fontSize:10,color:"#64748b",letterSpacing:2,textTransform:"uppercase" }}>Secretaria Municipal de Saúde</div>
-              <div style={{ fontSize:17,fontWeight:700,color:"#fff" }}>Gestão de Transporte</div>
+              <div className="admin-eyebrow">Secretaria Municipal de Saúde</div>
+              <div className="admin-title">Gestão de Transporte</div>
             </div>
           </div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={recarregar} style={{ background:"#1e3a5f",border:"none",color:"#38bdf8",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>🔄 Atualizar</button>
-            <button onClick={()=>setImportarCadastrosModal(true)} style={{ background:"#059669",border:"none",color:"#fff",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>Importar Cadastros</button>
+          <div className="admin-actions">
+            <button onClick={recarregar} className="admin-action secondary">Atualizar</button>
+            <button onClick={()=>setImportarCadastrosModal(true)} className="admin-action primary">Importar Cadastros</button>
             {tab==="viagens"    && <Btn onClick={()=>setModal({type:"viagem",item:null})}    color="#10b981" small>+ Nova Viagem</Btn>}
             {tab==="pacientes"  && <Btn onClick={()=>setModal({type:"paciente",item:null})}  color="#10b981" small>+ Paciente</Btn>}
             {tab==="clinicas"   && <Btn onClick={()=>setModal({type:"destino",item:null})}   color="#10b981" small>+ Clínica</Btn>}
@@ -316,42 +347,42 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
       </div>
 
       {/* Tabs */}
-      <div style={{ display:"flex",borderBottom:"1px solid #0f1f35",background:"#070f1f",overflowX:"auto" }}>
-        {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:"12px 14px",background:"none",border:"none",whiteSpace:"nowrap",color:tab===t.id?"#10b981":"#64748b",borderBottom:tab===t.id?"2px solid #10b981":"2px solid transparent",fontWeight:600,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>{t.label}</button>)}
+      <div className="admin-tabs">
+        {tabs.map(t=><button key={t.id} onClick={()=>setTab(t.id)} className={`admin-tab ${tab===t.id?"active":""}`}>{t.label}</button>)}
       </div>
 
       {tab==="relatorios" && <Relatorios viagens={viagens} db={db}/>}
 
       {tab!=="relatorios" && (
-        <div style={{ padding:20, maxWidth:800, margin:"0 auto" }}>
+        <div className="admin-content">
 
           {/* DASHBOARD */}
           {tab==="dashboard" && (
             <div>
-              <SecTitle>RESUMO DO DIA — {fmtDate(TODAY)}</SecTitle>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24 }}>
+              <div className="admin-section-title">Resumo do dia - {fmtDate(TODAY)}</div>
+              <div className="admin-stats-grid">
                 {DASH_STATS.map(s=>(
-                  <button key={s.key} onClick={()=>setDashFilter(s.key)} style={{ background:"#0c1a2e",borderRadius:14,padding:16,border:`1px solid ${s.color}33`,textAlign:"center",cursor:"pointer",fontFamily:"inherit",outline:"none" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=s.color;e.currentTarget.style.background="#0f2040";}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=`${s.color}33`;e.currentTarget.style.background="#0c1a2e";}}>
-                    <div style={{ fontSize:22,marginBottom:4 }}>{s.icon}</div>
-                    <div style={{ fontSize:28,fontWeight:800,color:s.color }}>{s.value}</div>
-                    <div style={{ fontSize:11,color:"#64748b" }}>{s.label}</div>
+                  <button key={s.key} onClick={()=>setDashFilter(s.key)} className="admin-stat-card" style={{ borderColor:`${s.color}33` }}>
+                    <div className="admin-stat-top">
+                      <div className="admin-stat-label">{s.label}</div>
+                      <div className="admin-stat-icon" style={{ color:s.color }}>{s.icon}</div>
+                    </div>
+                    <div className="admin-stat-value" style={{ color:s.color }}>{s.value}</div>
                   </button>
                 ))}
               </div>
-              <SecTitle>PROGRESSO POR STATUS</SecTitle>
-              {totalPax===0 ? <div style={{ color:"#475569",fontSize:13 }}>Nenhum passageiro hoje</div>
+              <div className="admin-section-title">Progresso por status</div>
+              {totalPax===0 ? <div className="admin-progress-empty">Nenhum passageiro hoje</div>
                 : Object.entries(STATUS_CONFIG).map(([key,cfg])=>{
                   const count=hoje.reduce((a,v)=>a+v.passageiros.filter(p=>p.status===key).length,0);
                   if(count===0) return null;
                   return (
-                    <div key={key} onClick={()=>setDashFilter(key)} style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10,cursor:"pointer" }}>
-                      <div style={{ width:90,fontSize:12,color:cfg.color,fontWeight:600 }}>{cfg.label}</div>
-                      <div style={{ flex:1,height:10,background:"#1e293b",borderRadius:6,overflow:"hidden" }}>
+                    <div key={key} onClick={()=>setDashFilter(key)} className="admin-progress-row">
+                      <div style={{ width:90,fontSize:12,color:cfg.color,fontWeight:700 }}>{cfg.label}</div>
+                      <div className="admin-progress-track">
                         <div style={{ width:`${(count/totalPax)*100}%`,height:"100%",background:cfg.color,borderRadius:6,transition:"width .5s" }}/>
                       </div>
-                      <div style={{ width:24,textAlign:"right",fontSize:13,fontWeight:700,color:"#e2e8f0" }}>{count}</div>
+                      <div style={{ width:24,textAlign:"right",fontSize:13,fontWeight:800,color:"#0f172a" }}>{count}</div>
                     </div>
                   );
                 })
