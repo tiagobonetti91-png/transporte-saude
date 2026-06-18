@@ -1,6 +1,8 @@
 import pdfParse from "pdf-parse";
 
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
+const DATE_RE = "\\d{2}\\/\\d{2}\\/20\\d{2}";
+const TIME_RE = "(?:[01]?\\d|2[0-3])[:hH][0-5]\\d";
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -36,10 +38,6 @@ function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function onlyDigits(value) {
-  return String(value || "").replace(/\D/g, "");
-}
-
 function normalizeDate(value) {
   const text = String(value || "");
   let match = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
@@ -58,9 +56,9 @@ function normalizeTime(value) {
 }
 
 function normalizeTripType(value) {
-  const text = String(value || "").toLowerCase();
-  if (/\b(somente\s+ida|ida|\bi\b)\b/.test(text) && !/volta|\bv\b/.test(text)) return "ida";
-  if (/\b(somente\s+volta|volta|\bv\b)\b/.test(text) && !/ida|\bi\b/.test(text)) return "volta";
+  const text = String(value || "").toUpperCase().replace(/\s+/g, "");
+  if (text === "I") return "ida";
+  if (text === "V") return "volta";
   return "ida_volta";
 }
 
@@ -73,77 +71,22 @@ function findAfterLabel(text, labels) {
   return "";
 }
 
+function removeAccents(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function findPlate(text) {
   const match = text.toUpperCase().match(/\b[A-Z]{3}[- ]?\d[A-Z0-9]\d{2}\b|\b[A-Z]{3}[- ]?\d{4}\b/);
   return match ? match[0].replace(/\s/g, "") : "";
 }
 
-function findCpf(text) {
-  const match = text.match(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/);
-  return match ? match[0] : "";
-}
-
 function findPhone(text) {
-  const match = text.match(/(?:\(?\d{2}\)?\s*)?9?\d{4}[- ]?\d{4}/);
+  const match = text.match(/\(?\d{2}\)?\s*9?\d{4,5}[- ]?\d{4}/);
   return match ? match[0] : "";
-}
-
-function titleCaseName(value) {
-  return cleanText(value)
-    .replace(/^(paciente|nome|passageiro)\s*[:=-]\s*/i, "")
-    .replace(/\b(CPF|RG|SUS|CARTAO|CARTÃO|FONE|TEL|TELEFONE)\b.*$/i, "")
-    .replace(/[|;]+/g, " ")
-    .trim();
-}
-
-function looksLikePatientLine(line) {
-  const lower = line.toLowerCase();
-  if (/motorista|veiculo|veículo|placa|roteiro|viagem|secretaria|municipal/.test(lower)) return false;
-  if (findCpf(line) || normalizeTime(line)) return /[A-Za-zÀ-ÿ]{3,}\s+[A-Za-zÀ-ÿ]{3,}/.test(line);
-  return false;
-}
-
-function parsePassenger(line, fallbackDestino) {
-  const cpf = findCpf(line);
-  const telefone = findPhone(line.replace(cpf, ""));
-  const horarioChegada = normalizeTime(line);
-  const tipoTrajeto = normalizeTripType(line);
-
-  const destino = findAfterLabel(line, ["destino", "desembarque", "local atendimento", "clinica", "cl[ií]nica", "hospital"])
-    || fallbackDestino;
-  const localEmbarque = findAfterLabel(line, ["embarque", "local embarque", "ponto", "origem"]);
-
-  let nome = line
-    .replace(cpf, " ")
-    .replace(telefone, " ")
-    .replace(/\b([01]?\d|2[0-3])\s*[:hH]\s*([0-5]\d)\b/g, " ")
-    .replace(/\b(I\/V|IDA\s+E\s+VOLTA|SOMENTE\s+IDA|SOMENTE\s+VOLTA|IDA|VOLTA)\b/ig, " ")
-    .replace(/\b(destino|desembarque|local atendimento|clinica|clínica|hospital|embarque|local embarque|ponto|origem)\s*[:=-].*$/i, " ");
-
-  const beforeCpf = cpf ? line.split(cpf)[0] : nome;
-  if (beforeCpf && beforeCpf.length >= 5) nome = beforeCpf;
-
-  const acompanhantes = [];
-  const acompMatches = line.match(/(?:\+|acomp(?:anhante)?\.?\s*[:=-]?\s*)([A-ZÀ-Ú][A-ZÀ-Ú' ]{4,})/gi) || [];
-  for (const item of acompMatches) {
-    const acompNome = item.replace(/^\+|acomp(?:anhante)?\.?\s*[:=-]?\s*/i, "").trim();
-    if (acompNome) acompanhantes.push({ nome: cleanText(acompNome), cpf: "" });
-  }
-
-  return {
-    nome: titleCaseName(nome),
-    cpf,
-    telefone,
-    localEmbarque,
-    destino: cleanText(destino),
-    horarioChegada,
-    tipoTrajeto,
-    acompanhantes,
-  };
 }
 
 function splitTrips(text) {
-  const matches = [...text.matchAll(/(?:^|\n)\s*(?:viagem|roteiro)\s*(?:n[ºo.]*)?\s*[:#-]?\s*(\d+)?/gi)];
+  const matches = [...text.matchAll(/(?:^|\n)\s*(?:\d{4,6})\s*(?=\n)/g)];
   if (matches.length <= 1) return [text];
 
   return matches.map((match, index) => {
@@ -153,32 +96,123 @@ function splitTrips(text) {
   });
 }
 
-function parseTrip(block, index) {
-  const lines = block.split(/\n+/).map(cleanText).filter(Boolean);
-  const flat = lines.join("\n");
-  const firstLine = lines[0] || "";
+function getHeaderValue(block, regex, fallback = "") {
+  const match = block.match(regex);
+  return match ? cleanText(match[1]) : fallback;
+}
 
-  const numeroMatch = firstLine.match(/(?:viagem|roteiro)\s*(?:n[ºo.]*)?\s*[:#-]?\s*(\d+)/i) || flat.match(/(?:viagem|roteiro)\s*(?:n[ºo.]*)?\s*[:#-]?\s*(\d+)/i);
-  const destinoGeral = findAfterLabel(flat, ["destino", "cidade", "municipio", "munic[ií]pio"]);
-  const motoristaNome = findAfterLabel(flat, ["motorista", "condutor"]);
-  const cnh = onlyDigits(findAfterLabel(flat, ["cnh"]));
-  const placa = findPlate(flat);
-  const modelo = findAfterLabel(flat, ["veiculo", "veículo", "modelo"]).replace(placa, "").trim();
-  const vagasMatch = flat.match(/\b(?:vagas|capacidade|lugares)\s*[:=-]?\s*(\d{1,2})\b/i);
+function parseDestinoPart(part) {
+  const raw = cleanText(part);
+  if (!raw) return { localEmbarque: "", destino: "" };
 
-  const passageiros = [];
-  for (const line of lines) {
-    if (!looksLikePatientLine(line)) continue;
-    const passageiro = parsePassenger(line, destinoGeral);
-    if (passageiro.nome && !passageiros.some(p => p.nome.toLowerCase() === passageiro.nome.toLowerCase() && p.cpf === passageiro.cpf)) {
-      passageiros.push(passageiro);
+  const knownStarts = [
+    "ANITAPOLIS", "ANITÁPOLIS", "ALFA", "ANGELO CARARA", "ESP PORTAL", "ESP RIO DOS PINHEIROS",
+    "ESP RIO DOS", "EMILIA GUIMARAES", "ANTONIO DAVID", "EM CASA", "HRSJ", "RIO ALFA", "ANA SCHMIDT", "ANA SCHIMTZ"
+  ];
+
+  const normalized = removeAccents(raw).toUpperCase();
+  for (const start of knownStarts.sort((a, b) => b.length - a.length)) {
+    const normStart = removeAccents(start).toUpperCase();
+    if (normalized === normStart) return { localEmbarque: raw, destino: "" };
+    if (normalized.startsWith(normStart + " ")) {
+      return {
+        localEmbarque: cleanText(raw.slice(0, start.length)),
+        destino: cleanText(raw.slice(start.length)),
+      };
     }
+  }
+
+  const parts = raw.split(" ");
+  if (parts.length <= 1) return { localEmbarque: raw, destino: "" };
+  return { localEmbarque: parts[0], destino: parts.slice(1).join(" ") };
+}
+
+function parsePassengerLine(line, fallbackDestino) {
+  const re = new RegExp(`^\\+?(.+?)\\s+(\\d{11}|\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2})\\s*(\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(I\\s*\\/\\s*V|I|V)\\s+(.+?)\\s+(${DATE_RE})\\s+(${TIME_RE})\\b`, "i");
+  const match = cleanText(line).match(re);
+  if (!match) return null;
+
+  const destinoInfo = parseDestinoPart(match[5]);
+  return {
+    nome: cleanText(match[1]),
+    cpf: match[2],
+    telefone: cleanText(match[3] || ""),
+    localEmbarque: destinoInfo.localEmbarque,
+    destino: destinoInfo.destino || fallbackDestino,
+    horarioChegada: normalizeTime(match[7]),
+    tipoTrajeto: normalizeTripType(match[4]),
+    acompanhantes: [],
+  };
+}
+
+function parseCompanionLine(line) {
+  const text = cleanText(line).replace(/^\+\s*/, "");
+  const withCpf = text.match(/^(.+?)\s+(\d{11}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})\s*(\(?\d{2}\)?\s*9?\d{4,5}[- ]?\d{4})?/i);
+  if (withCpf) {
+    return {
+      nome: cleanText(withCpf[1]),
+      cpf: withCpf[2],
+      telefone: cleanText(withCpf[3] || ""),
+    };
+  }
+
+  const match = text.match(/^(.+?)(?:\s+(?:I\s*\/\s*V|I|V)\b|\s+E\s+ACOMPANHANTE|\s+É\s+ACOMPANHANTE|$)/i);
+  const nome = cleanText(match?.[1] || "ACOMPANHANTE");
+  return { nome, cpf: "", telefone: "" };
+}
+
+function joinWrappedLines(lines) {
+  const joined = [];
+  for (const line of lines) {
+    const current = cleanText(line);
+    if (!current) continue;
+
+    const isContinuation = !current.startsWith("+") && !current.match(/^\+?[A-ZÀ-Ú][A-ZÀ-Ú' ]+\s+\d{11}\b/) &&
+      !/^OBS\b/i.test(current) &&
+      !/^(Relatorio|Relatório|rangsaude|terça|segunda|quarta|quinta|sexta|sábado|domingo)/i.test(current) &&
+      joined.length > 0;
+
+    if (isContinuation) joined[joined.length - 1] = `${joined[joined.length - 1]} ${current}`;
+    else joined.push(current);
+  }
+  return joined;
+}
+
+function parseTrip(block, index) {
+  const numeroMatch = block.match(/(?:^|\n)\s*(\d{4,6})\s*(?=\n)/);
+  const destinoGeral = getHeaderValue(block, /Destino:\s*(.+?)\s+Objetivo/i);
+  const veiculoFull = getHeaderValue(block, /Ve[ií]culo:\s*(.+?)\s+Data Sa[ií]da:/i);
+  const placa = findPlate(veiculoFull);
+  const modelo = cleanText(veiculoFull.replace(placa, "").replace(/^[-\s]+/, ""));
+  const data = normalizeDate(getHeaderValue(block, /Data Sa[ií]da:\s*([^\n]+?)(?:\s+Data|\n)/i, block));
+  const horaSaida = normalizeTime(getHeaderValue(block, /Hora Sa[ií]da:\s*([^\n]+?)(?:\s+Hora|\n)/i, block));
+  const motoristaNome = getHeaderValue(block, /Motorist\w*\s+(.+?)\s+Hora Sa[ií]da:/i);
+  const cnh = getHeaderValue(block, /Cnh:\s*(\d+)/i);
+  const vagasMatch = block.match(/Vagas:\s*(\d+)/i);
+
+  const tableStart = block.search(/PASSAGEIRO\s+Assinatura/i);
+  const tableText = tableStart >= 0 ? block.slice(tableStart).replace(/^.*PASSAGEIRO.*DATA\/HORA/i, "") : block;
+  const rawLines = tableText.split(/\n+/).map(cleanText).filter(Boolean);
+  const lines = joinWrappedLines(rawLines);
+  const passageiros = [];
+
+  for (const line of lines) {
+    if (/^OBS\b/i.test(line)) continue;
+    if (/^(Relatorio|Relatório|rangsaude|terça|segunda|quarta|quinta|sexta|sábado|domingo)/i.test(line)) continue;
+
+    if (line.startsWith("+")) {
+      if (passageiros.length) passageiros[passageiros.length - 1].acompanhantes.push(parseCompanionLine(line));
+      continue;
+    }
+
+    const passageiro = parsePassengerLine(line, destinoGeral);
+    if (passageiro) passageiros.push(passageiro);
   }
 
   return {
     numeroViagem: numeroMatch?.[1] || String(index + 1),
-    data: normalizeDate(flat),
-    horaSaida: normalizeTime(findAfterLabel(flat, ["saida", "saída", "horario saida", "horário saída"]) || flat),
+    data,
+    horaSaida,
     destino: destinoGeral,
     motorista: { nome: motoristaNome, cnh },
     veiculo: { placa, modelo, vagas: Number(vagasMatch?.[1] || 10) },
@@ -194,14 +228,14 @@ function parseRoteiroText(text) {
     .trim();
 
   if (normalized.length < 40) {
-    throw new Error("Nao consegui extrair texto do PDF. Ele pode ser uma imagem escaneada; nesse caso e preciso OCR ou digitar/exportar o roteiro em PDF com texto selecionavel.");
+    throw new Error("Nao consegui extrair texto do PDF. Ele pode ser uma imagem escaneada; nesse caso e preciso OCR ou exportar o roteiro em PDF com texto selecionavel.");
   }
 
   const viagens = splitTrips(normalized)
     .map(parseTrip)
-    .filter(v => v.data || v.motorista.nome || v.veiculo.placa || v.passageiros.length);
+    .filter(v => v.data && v.passageiros.length);
 
-  if (!viagens.length || viagens.every(v => v.passageiros.length === 0)) {
+  if (!viagens.length) {
     throw new Error("Li o PDF, mas nao consegui identificar os passageiros automaticamente. Envie um exemplo do roteiro para eu ajustar as regras do importador ao modelo do seu PDF.");
   }
 
