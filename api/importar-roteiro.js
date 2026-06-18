@@ -86,8 +86,18 @@ function findPhone(text) {
 }
 
 function splitTrips(text) {
-  const re = /(?:Secretaria Municipal[\s\S]*?Número da Viagem\s*(?:CNPJ:\s*\d+\s*)?(\d{4,6})|(?:^|\n)\s*(\d{4,6})\s*(?=\n))/gi;
-  const matches = [...text.matchAll(re)];
+  const patterns = [
+    /Secretaria Municipal[\s\S]*?(?:Número|Numero|NÃºmero) da Viagem[\s\S]{0,80}?(\d{4,6})/gi,
+    /Roteiro da Viagem[\s\S]{0,350}?(\d{4,6})/gi,
+    /(?:^|\n)\s*(\d{4,6})\s*(?=\n)/g,
+  ];
+
+  let matches = [];
+  for (const re of patterns) {
+    matches = [...text.matchAll(re)];
+    if (matches.length > 1) break;
+  }
+
   if (matches.length <= 1) return [text];
 
   return matches.map((match, index) => {
@@ -247,6 +257,12 @@ function parseTrip(block, index) {
   };
 }
 
+function makeTextSample(text) {
+  return cleanText(text)
+    .slice(0, 900)
+    .replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, "***CPF***")
+    .replace(/\(?\d{2}\)?\s*9?\d{4,5}[- ]?\d{4}/g, "***TEL***");
+}
 function parseRoteiroText(text) {
   const normalized = String(text || "")
     .replace(/\r/g, "\n")
@@ -263,7 +279,7 @@ function parseRoteiroText(text) {
     .filter(v => v.data && v.passageiros.length);
 
   if (!viagens.length) {
-    throw new Error("Li o PDF, mas nao consegui identificar os passageiros automaticamente. Envie um exemplo do roteiro para eu ajustar as regras do importador ao modelo do seu PDF.");
+    throw new Error(`Li o PDF, mas nao consegui identificar os passageiros automaticamente. Amostra do texto lido: ${makeTextSample(normalized)}`);
   }
 
   return { viagens };
@@ -292,7 +308,7 @@ export default async function handler(req, res) {
 
     const buffer = Buffer.from(pdfBase64, "base64");
     const pdf = await pdfParse(buffer);
-    const json = parseRoteiroText(pdf.text);
+    const json = parseRoteiroText(pdf.text || "");
 
     res.status(200).json(json);
   } catch (error) {
