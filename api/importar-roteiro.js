@@ -3,6 +3,12 @@ import pdfParse from "pdf-parse";
 const MAX_BODY_BYTES = 25 * 1024 * 1024;
 const DATE_RE = "\\d{2}\\/\\d{2}\\/20\\d{2}";
 const TIME_RE = "(?:[01]?\\d|2[0-3])[:hH][0-5]\\d";
+const BOARDING_POINTS = [
+  "ESTRADA GERAL RIO", "ESP RIO DOS PINHEIROS", "ESP RIO DOS", "ANGELO CARARA", "ESP PORTAL",
+  "EMILIA GUIMARAES", "ANTONIO DAVID", "ANA SCHMIDT", "ANA SCHIMTZ", "ANITAPOLIS", "ANITÁPOLIS",
+  "ALFA", "EM CASA", "HRSJ", "RIO ALFA", "CEPON"
+];
+const BOARDING_RE = BOARDING_POINTS.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -164,11 +170,7 @@ function parsePassengerLine(line, fallbackDestino) {
   if (!match) return null;
 
   const nameAndBoarding = cleanText(match[1]);
-  const boardingStarts = [
-    "ESTRADA GERAL RIO", "ESP RIO DOS PINHEIROS", "ESP RIO DOS", "ANGELO CARARA", "ESP PORTAL",
-    "EMILIA GUIMARAES", "ANTONIO DAVID", "ANA SCHMIDT", "ANA SCHIMTZ", "ANITAPOLIS", "ANITÁPOLIS",
-    "ALFA", "EM CASA", "HRSJ", "RIO ALFA", "CEPON"
-  ].sort((a, b) => b.length - a.length);
+  const boardingStarts = [...BOARDING_POINTS].sort((a, b) => b.length - a.length);
 
   let nome = nameAndBoarding;
   let localEmbarque = "";
@@ -228,13 +230,15 @@ function joinWrappedLines(lines) {
 }
 
 function extractPassengerRecords(text) {
-  const source = cleanText(text)
+  let source = cleanText(text)
     .replace(/\s+OBS\s*:/gi, " OBS: ")
     .replace(/\s+Relat[oó]rio gerado[\s\S]*$/i, "");
 
-  // Evita faixas de letras acentuadas em regex, que podem quebrar no Vercel por encoding.
-  const normalRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
-  const vercelRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4}\\s+(?:I\\s*\\/\\s*V|I|V)\\s+\\d{11}\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  const assinaturaIdx = source.toLowerCase().lastIndexOf("assinatura");
+  if (assinaturaIdx >= 0) source = source.slice(assinaturaIdx + "assinatura".length);
+
+  const normalRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+(?:${BOARDING_RE})\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  const vercelRe = new RegExp(`\\+?[^0-9\\n]{3,}?\\s+(?:${BOARDING_RE})\\s+\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4}\\s+(?:I\\s*\\/\\s*V|I|V)\\s+\\d{11}\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
 
   return [...(source.match(normalRe) || []), ...(source.match(vercelRe) || [])];
 }
@@ -260,8 +264,8 @@ function parseTrip(block, index) {
   const veiculoFull = getHeaderValue(block, /Ve[ií]culo:\s*(.+?)\s+Data Sa[ií]da:/i);
   const placa = findPlate(veiculoFull);
   const modelo = cleanText(veiculoFull.replace(placa, "").replace(/^[-\s]+/, ""));
-  const data = normalizeDate(getHeaderValue(block, /Data Sa[ií]da:\s*([^\n]+?)(?:\s+Data|\n)/i, block));
-  const horaSaida = normalizeTime(getHeaderValue(block, /Hora Sa[ií]da:\s*([^\n]+?)(?:\s+Hora|\n)/i, block));
+  const data = normalizeDate(getHeaderValue(block, /Data Sa[ií]da:\s*([^\n]+?)(?:\s+Data|\n)/i, "") || block);
+  const horaSaida = normalizeTime(getHeaderValue(block, /Hora Sa[ií]da:\s*([^\n]+?)(?:\s+Hora|\n)/i, "") || block.match(/Hora Sa[ií]da:\s*(?:Hora\s*)?([^\n]{0,80})/i)?.[1] || block);
   const motoristaNome = getHeaderValue(block, /Motorist\w*\s+(.+?)\s+Hora Sa[ií]da:/i);
   const cnh = getHeaderValue(block, /Cnh:\s*(\d+)/i);
   const vagasMatch = block.match(/Vagas:\s*(\d+)/i);
@@ -272,7 +276,11 @@ function parseTrip(block, index) {
   const lines = joinWrappedLines(rawLines);
   let passageiros = [];
 
-  for (const line of lines) {
+  if (lines.length === 1 && lines[0].length > 400) {
+    passageiros = parsePassengersFromText(tableText, destinoGeral);
+  }
+
+  for (const line of passageiros.length ? [] : lines) {
     if (/^OBS\b/i.test(line)) continue;
     if (/^(Relatorio|Relatório|rangsaude|terça|segunda|quarta|quinta|sexta|sábado|domingo)/i.test(line)) continue;
 
@@ -316,10 +324,10 @@ function parseRoteiroText(text) {
 
   const viagens = splitTrips(normalized)
     .map(parseTrip)
-    .filter(v => v.data && v.passageiros.length);
+    .filter(v => v.passageiros.length);
 
   if (!viagens.length) {
-    throw new Error(`Li o PDF, mas nao consegui identificar os passageiros automaticamente. Amostra do texto lido: ${makeTextSample(normalized)}`);
+    throw new Error(`Li o PDF, mas nao consegui montar viagens. Blocos encontrados: ${splitTrips(normalized).length}. Registros encontrados: ${extractPassengerRecords(normalized).length}. Amostra do texto lido: ${makeTextSample(normalized)}`);
   }
 
   return { viagens };
