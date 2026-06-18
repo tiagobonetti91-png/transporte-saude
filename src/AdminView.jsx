@@ -4,6 +4,7 @@ import { STATUS_CONFIG, VIAGEM_STATUS, fmtDate, fmtCurrency, TODAY, apiPacientes
 import { ModalPaciente, ModalDestino, ModalMotorista, ModalVeiculo, ModalAdmin, ModalViagem } from './Modals.jsx';
 import Relatorios from './Relatorios.jsx';
 import ImportarRoteiro from './ImportarRoteiro.jsx';
+import ImportarCadastros from './ImportarCadastros.jsx';
 
 
 // ── Gerador de Relatório PDF ──────────────────────────────────────────────────
@@ -137,6 +138,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
   const [dashFilter, setDashFilter] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [importarModal, setImportarModal] = useState(false);
+  const [importarCadastrosModal, setImportarCadastrosModal] = useState(false);
 
   const hoje = viagens.filter(v => v.data === TODAY);
   const totalPax = hoje.reduce((a,v) => a + v.passageiros.length, 0);
@@ -239,6 +241,17 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
           db={db} recarregar={recarregar}
         />
       )}
+      {importarCadastrosModal && (
+        <ImportarCadastros
+          onClose={()=>setImportarCadastrosModal(false)}
+          db={db}
+          apiPacientes={apiPacientes}
+          apiDestinos={apiDestinos}
+          mapPaciente={mapPaciente}
+          mapDestino={mapDestino}
+          recarregar={recarregar}
+        />
+      )}
 
       {/* Drill-down dashboard */}
       {dashFilter && (
@@ -291,7 +304,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={recarregar} style={{ background:"#1e3a5f",border:"none",color:"#38bdf8",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>🔄 Atualizar</button>
-            <button onClick={()=>setImportarModal(true)} style={{ background:"#7c3aed",border:"none",color:"#fff",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>📄 Importar Roteiro</button>
+            <button onClick={()=>setImportarCadastrosModal(true)} style={{ background:"#059669",border:"none",color:"#fff",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>Importar Cadastros</button>
             {tab==="viagens"    && <Btn onClick={()=>setModal({type:"viagem",item:null})}    color="#10b981" small>+ Nova Viagem</Btn>}
             {tab==="pacientes"  && <Btn onClick={()=>setModal({type:"paciente",item:null})}  color="#10b981" small>+ Paciente</Btn>}
             {tab==="clinicas"   && <Btn onClick={()=>setModal({type:"destino",item:null})}   color="#10b981" small>+ Clínica</Btn>}
