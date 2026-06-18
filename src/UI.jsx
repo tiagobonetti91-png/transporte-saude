@@ -61,8 +61,8 @@ export function CrudList({ title, icon, items, renderRow, onNew, onEdit, onDelet
           <div key={item.id} className="crud-card">
             <div className="crud-content">{renderRow(item)}</div>
             <div className="crud-actions">
-              <button onClick={()=>onEdit(item)} className="crud-icon-btn edit" title="Editar">✎</button>
-              <button onClick={()=>onDelete(item.id)} className="crud-icon-btn delete" title="Excluir">⌫</button>
+              <button onClick={()=>onEdit(item)} className="crud-icon-btn edit" title="Editar" aria-label="Editar">✎</button>
+              <button onClick={()=>onDelete(item.id)} className="crud-icon-btn delete" title="Excluir" aria-label="Excluir">🗑</button>
             </div>
           </div>
         ))

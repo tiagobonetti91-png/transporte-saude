@@ -255,9 +255,9 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
     .crud-content div div:first-child{color:#0f172a!important;font-weight:800;}
     .crud-content div div:not(:first-child){color:#64748b!important;}
     .crud-actions{display:flex;gap:8px;flex-shrink:0;}
-    .crud-icon-btn{width:38px;height:36px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+    .crud-icon-btn{width:38px;height:36px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
     .crud-icon-btn.edit{background:#eaf2ff;color:#2563eb;}
-    .crud-icon-btn.delete{background:#fee2e2;color:#b91c1c;}
+    .crud-icon-btn.delete{background:#fee2e2;color:#dc2626;}
     .crud-empty{background:#fff;border:1px solid #dbe4ef;border-radius:14px;text-align:center;color:#64748b;padding:32px;}
     @media(max-width:980px){.admin-header{padding-right:24px}.admin-header-row{align-items:flex-start}.admin-actions{justify-content:flex-start;width:100%}.admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
     @media(max-width:620px){.admin-header{padding:16px}.admin-title{font-size:18px}.admin-content{padding:18px 12px}.admin-stats-grid{grid-template-columns:1fr}.admin-action{flex:1}.admin-brand{min-width:0}.admin-tabs{padding:0 4px}.admin-tab{font-size:12px;padding:12px 10px;}}
