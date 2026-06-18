@@ -3,6 +3,7 @@ import { S, Btn, SecTitle, CrudList, ViagemStatusBadge, StatusBadge } from './UI
 import { STATUS_CONFIG, VIAGEM_STATUS, fmtDate, fmtCurrency, TODAY, apiPacientes, apiDestinos, apiMotoristas, apiVeiculos, apiAdmins, apiViagens, mapPaciente, mapDestino, mapMotorista, mapVeiculo } from './data.js';
 import { ModalPaciente, ModalDestino, ModalMotorista, ModalVeiculo, ModalAdmin, ModalViagem } from './Modals.jsx';
 import Relatorios from './Relatorios.jsx';
+import ImportarRoteiro from './ImportarRoteiro.jsx';
 
 
 // ── Gerador de Relatório PDF ──────────────────────────────────────────────────
@@ -135,6 +136,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
   const [modal, setModal] = useState(null);
   const [dashFilter, setDashFilter] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [importarModal, setImportarModal] = useState(false);
 
   const hoje = viagens.filter(v => v.data === TODAY);
   const totalPax = hoje.reduce((a,v) => a + v.passageiros.length, 0);
@@ -226,6 +228,17 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
       {modal?.type==="motorista" && <ModalMotorista item={modal.item} onSave={f=>crudSave("motoristas",f)} onClose={closeModal}/>}
       {modal?.type==="veiculo"   && <ModalVeiculo   item={modal.item} onSave={f=>crudSave("veiculos",f)}   onClose={closeModal}/>}
       {modal?.type==="admin"     && <ModalAdmin     item={modal.item} onSave={f=>crudSave("admins",f)}     onClose={closeModal}/>}
+      {importarModal && (
+        <ImportarRoteiro
+          onClose={()=>setImportarModal(false)}
+          apiPacientes={apiPacientes} apiDestinos={apiDestinos}
+          apiMotoristas={apiMotoristas} apiVeiculos={apiVeiculos}
+          apiViagens={apiViagens}
+          mapPaciente={mapPaciente} mapDestino={mapDestino}
+          mapMotorista={mapMotorista} mapVeiculo={mapVeiculo}
+          db={db} recarregar={recarregar}
+        />
+      )}
 
       {/* Drill-down dashboard */}
       {dashFilter && (
@@ -278,6 +291,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <button onClick={recarregar} style={{ background:"#1e3a5f",border:"none",color:"#38bdf8",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>🔄 Atualizar</button>
+            <button onClick={()=>setImportarModal(true)} style={{ background:"#7c3aed",border:"none",color:"#fff",borderRadius:8,padding:"6px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600 }}>📄 Importar Roteiro</button>
             {tab==="viagens"    && <Btn onClick={()=>setModal({type:"viagem",item:null})}    color="#10b981" small>+ Nova Viagem</Btn>}
             {tab==="pacientes"  && <Btn onClick={()=>setModal({type:"paciente",item:null})}  color="#10b981" small>+ Paciente</Btn>}
             {tab==="clinicas"   && <Btn onClick={()=>setModal({type:"destino",item:null})}   color="#10b981" small>+ Clínica</Btn>}
