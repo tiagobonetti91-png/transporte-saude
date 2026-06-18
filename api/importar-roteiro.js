@@ -139,23 +139,61 @@ function parseDestinoPart(part) {
 }
 
 function parsePassengerLine(line, fallbackDestino) {
-  const re = new RegExp(`^\\+?(.+?)\\s+(\\d{11}|\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2})\\s*(\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(I\\s*\\/\\s*V|I|V)\\s+(.+?)\\s+(${DATE_RE})\\s+(${TIME_RE})\\b`, "i");
-  const match = cleanText(line).match(re);
+  const current = cleanText(line);
+
+  // Formato comum: NOME CPF TELEFONE I/V EMBARQUE DESTINO DATA HORA
+  const normalRe = new RegExp(`^\\+?(.+?)\\s+(\\d{11}|\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2})\\s*(\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(I\\s*\\/\\s*V|I|V)\\s+(.+?)\\s+(${DATE_RE})\\s+(${TIME_RE})\\b`, "i");
+  let match = current.match(normalRe);
+  if (match) {
+    const destinoInfo = parseDestinoPart(match[5]);
+    return {
+      nome: cleanText(match[1]),
+      cpf: match[2],
+      telefone: cleanText(match[3] || ""),
+      localEmbarque: destinoInfo.localEmbarque,
+      destino: destinoInfo.destino || fallbackDestino,
+      horarioChegada: normalizeTime(match[7]),
+      tipoTrajeto: normalizeTripType(match[4]),
+      acompanhantes: [],
+    };
+  }
+
+  // Formato do Vercel/pdf-parse: NOME EMBARQUE TELEFONE I/V CPF DESTINO DATA HORA
+  const vercelRe = new RegExp(`^\\+?(.+?)\\s+(\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})\\s+(I\\s*\\/\\s*V|I|V)\\s+(\\d{11}|\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2})\\s+(.+?)\\s+(${DATE_RE})\\s+(${TIME_RE})\\b`, "i");
+  match = current.match(vercelRe);
   if (!match) return null;
 
-  const destinoInfo = parseDestinoPart(match[5]);
+  const nameAndBoarding = cleanText(match[1]);
+  const boardingStarts = [
+    "ESTRADA GERAL RIO", "ESP RIO DOS PINHEIROS", "ESP RIO DOS", "ANGELO CARARA", "ESP PORTAL",
+    "EMILIA GUIMARAES", "ANTONIO DAVID", "ANA SCHMIDT", "ANA SCHIMTZ", "ANITAPOLIS", "ANITÁPOLIS",
+    "ALFA", "EM CASA", "HRSJ", "RIO ALFA", "CEPON"
+  ].sort((a, b) => b.length - a.length);
+
+  let nome = nameAndBoarding;
+  let localEmbarque = "";
+  const normalized = removeAccents(nameAndBoarding).toUpperCase();
+  for (const start of boardingStarts) {
+    const normStart = removeAccents(start).toUpperCase();
+    const idx = normalized.lastIndexOf(` ${normStart}`);
+    if (idx > 0) {
+      nome = cleanText(nameAndBoarding.slice(0, idx));
+      localEmbarque = cleanText(nameAndBoarding.slice(idx + 1));
+      break;
+    }
+  }
+
   return {
-    nome: cleanText(match[1]),
-    cpf: match[2],
-    telefone: cleanText(match[3] || ""),
-    localEmbarque: destinoInfo.localEmbarque,
-    destino: destinoInfo.destino || fallbackDestino,
+    nome,
+    cpf: match[4],
+    telefone: cleanText(match[2] || ""),
+    localEmbarque,
+    destino: cleanText(match[5]) || fallbackDestino,
     horarioChegada: normalizeTime(match[7]),
-    tipoTrajeto: normalizeTripType(match[4]),
+    tipoTrajeto: normalizeTripType(match[3]),
     acompanhantes: [],
   };
 }
-
 function parseCompanionLine(line) {
   const text = cleanText(line).replace(/^\+\s*/, "");
   const withCpf = text.match(/^(.+?)\s+(\d{11}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})\s*(\(?\d{2}\)?\s*9?\d{4,5}[- ]?\d{4})?/i);
@@ -194,10 +232,11 @@ function extractPassengerRecords(text) {
     .replace(/\s+OBS\s*:/gi, " OBS: ")
     .replace(/\s+Relat[oó]rio gerado[\s\S]*$/i, "");
 
-  const rowRe = new RegExp(`\\+?[A-ZÀ-Ú][A-ZÀ-Ú' ]{2,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
-  return source.match(rowRe) || [];
-}
+  const normalRe = new RegExp(`\\+?[A-ZÀ-ÚÃ€-Ãš][A-ZÀ-ÚÃ€-Ãš' ]{2,}?\\s+\\d{11}\\s*(?:\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4})?\\s+(?:I\\s*\\/\\s*V|I|V)\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
+  const vercelRe = new RegExp(`\\+?[A-ZÀ-ÚÃ€-Ãš][A-ZÀ-ÚÃ€-Ãš' ]{2,}?\\s+\\(?\\d{2}\\)?\\s*9?\\d{4,5}[- ]?\\d{4}\\s+(?:I\\s*\\/\\s*V|I|V)\\s+\\d{11}\\s+.*?\\s+${DATE_RE}\\s+${TIME_RE}`, "gi");
 
+  return [...(source.match(normalRe) || []), ...(source.match(vercelRe) || [])];
+}
 function parsePassengersFromText(tableText, fallbackDestino) {
   const passageiros = [];
   const records = extractPassengerRecords(tableText);
