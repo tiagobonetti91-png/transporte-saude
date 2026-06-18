@@ -163,7 +163,7 @@ export default function ImportarRoteiro({ onImportado, onClose, apiPacientes, ap
               </div>
               {erroMsg && <div style={{ marginTop:12, background:"#fef2f2", border:"1px solid #fca5a5", borderRadius:10, padding:"10px 14px", fontSize:13, color:T.red }}>{erroMsg}</div>}
               <div style={{ marginTop:16, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:10, padding:"10px 14px", fontSize:12, color:"#1e40af" }}>
-                <b>Como funciona:</b> A IA le o PDF e extrai automaticamente motoristas, veiculos, passageiros e destinos. Voce revisa antes de cadastrar no banco.
+                <b>Como funciona:</b> O sistema le o texto do PDF e tenta extrair automaticamente motoristas, veiculos, passageiros e destinos. Voce revisa antes de cadastrar no banco.
               </div>
             </div>
           )}
