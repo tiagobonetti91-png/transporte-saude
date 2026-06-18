@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/importar-roteiro.js": {
+      "maxDuration": 60
+    }
+  }
+}

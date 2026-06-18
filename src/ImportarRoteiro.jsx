@@ -37,28 +37,14 @@ export default function ImportarRoteiro({ onImportado, onClose, apiPacientes, ap
       });
 
       setProgresso("Enviando para a IA extrair os dados...");
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetch("/api/importar-roteiro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 4000,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
-              { type: "text", text: `Extraia TODOS os dados deste roteiro de viagem e retorne APENAS JSON valido sem markdown sem texto adicional seguindo exatamente esta estrutura:
-{"viagens":[{"numeroViagem":"10065","data":"2026-06-17","horaSaida":"04:30","destino":"Florianopolis - SC","motorista":{"nome":"TIAGO BONETTI","cnh":"04862851730"},"veiculo":{"placa":"SXD3A03","modelo":"MASTER INOVA BUS","vagas":15},"passageiros":[{"nome":"ROSELI JUNHES RAMOS","cpf":"051.388.198-01","telefone":"(48)9186-1903","localEmbarque":"ALFA","destino":"HOSPITAL FLORIANOPOLIS","horarioChegada":"07:00","tipoTrajeto":"ida_volta","acompanhantes":[]}]}]}
-Regras: data YYYY-MM-DD, horarios HH:MM, tipoTrajeto: "ida_volta" se I/V, "ida" se so I, "volta" se so V, acompanhantes array com {nome,cpf} quando houver +NOME, extraia TODAS as viagens, retorne APENAS o JSON` }
-            ]
-          }]
-        })
+        body: JSON.stringify({ pdfBase64: base64, fileName: file.name })
       });
 
-      const data = await resp.json();
-      const text = data.content?.find(b => b.type === "text")?.text || "";
-      const clean = text.replace(/```json|```/g, "").trim();
-      const json = JSON.parse(clean);
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || "Nao foi possivel importar este roteiro.");
 
       if (!json.viagens || json.viagens.length === 0) throw new Error("Nenhuma viagem encontrada no arquivo.");
       setDados(json);
