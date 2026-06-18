@@ -247,6 +247,18 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
     .admin-progress-empty{background:#fff;border:1px solid #dbe4ef;border-radius:14px;padding:18px;color:#64748b;font-size:13px;}
     .admin-progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;}
     .admin-progress-track{flex:1;height:10px;background:#e2e8f0;border-radius:6px;overflow:hidden;}
+    .crud-title{font-size:18px;font-weight:800;color:#0f172a;}
+    .crud-count{font-size:13px;color:#64748b;font-weight:700;}
+    .crud-card{background:#fff;border:1px solid #dbe4ef;border-radius:14px;padding:16px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:16px;box-shadow:0 8px 22px rgba(15,23,42,.045);}
+    .crud-content{flex:1;min-width:0;color:#0f172a;}
+    .crud-content div{color:#0f172a!important;}
+    .crud-content div div:first-child{color:#0f172a!important;font-weight:800;}
+    .crud-content div div:not(:first-child){color:#64748b!important;}
+    .crud-actions{display:flex;gap:8px;flex-shrink:0;}
+    .crud-icon-btn{width:38px;height:36px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+    .crud-icon-btn.edit{background:#eaf2ff;color:#2563eb;}
+    .crud-icon-btn.delete{background:#fee2e2;color:#b91c1c;}
+    .crud-empty{background:#fff;border:1px solid #dbe4ef;border-radius:14px;text-align:center;color:#64748b;padding:32px;}
     @media(max-width:980px){.admin-header{padding-right:24px}.admin-header-row{align-items:flex-start}.admin-actions{justify-content:flex-start;width:100%}.admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
     @media(max-width:620px){.admin-header{padding:16px}.admin-title{font-size:18px}.admin-content{padding:18px 12px}.admin-stats-grid{grid-template-columns:1fr}.admin-action{flex:1}.admin-brand{min-width:0}.admin-tabs{padding:0 4px}.admin-tab{font-size:12px;padding:12px 10px;}}
   `;

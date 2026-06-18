@@ -50,19 +50,19 @@ export function AutoC({ label, placeholder, results, onQuery, value, onSelect, r
 }
 export function CrudList({ title, icon, items, renderRow, onNew, onEdit, onDelete }) {
   return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <div style={{ fontSize:16, fontWeight:700, color:"#fff" }}>{icon} {title} <span style={{ fontSize:12, color:"#475569" }}>({items.length})</span></div>
+    <div className="crud-list">
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, gap:12, flexWrap:"wrap" }}>
+        <div className="crud-title">{icon} {title} <span className="crud-count">({items.length})</span></div>
         <Btn onClick={onNew} color="#10b981" small>+ Novo</Btn>
       </div>
       {items.length===0
-        ? <div style={{ ...S.card, textAlign:"center", color:"#475569", padding:32 }}>Nenhum registro</div>
+        ? <div className="crud-empty">Nenhum registro</div>
         : items.map(item=>(
-          <div key={item.id} style={{ ...S.card, display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
-            <div style={{ flex:1 }}>{renderRow(item)}</div>
-            <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-              <Btn small onClick={()=>onEdit(item)} color="#3b82f6">✏️</Btn>
-              <Btn small danger onClick={()=>onDelete(item.id)}>🗑️</Btn>
+          <div key={item.id} className="crud-card">
+            <div className="crud-content">{renderRow(item)}</div>
+            <div className="crud-actions">
+              <button onClick={()=>onEdit(item)} className="crud-icon-btn edit" title="Editar">✎</button>
+              <button onClick={()=>onDelete(item.id)} className="crud-icon-btn delete" title="Excluir">⌫</button>
             </div>
           </div>
         ))
