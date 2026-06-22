@@ -89,14 +89,14 @@ function onlyDigits(v) { return String(v||"").replace(/\D/g,""); }
 function motoristaEmailFromCpf(cpf) { return `${onlyDigits(cpf)}@transportesaude.app`; }
 
 async function criarAuthUser({ email, password, nome, perfil }) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+  const res = await fetch("/api/criar-usuario", {
     method:"POST",
-    headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, data: { nome, perfil } }),
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabase.auth.getToken()}` },
+    body: JSON.stringify({ email, password, nome, perfil }),
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data?.msg || data?.message || "nao consegui criar o login do usuario";
+    const msg = data?.error || data?.msg || data?.message || "nao consegui criar o login do usuario";
     throw new Error(`Supabase Auth: ${msg}`);
   }
   const user = data.user || data;
