@@ -1,6 +1,6 @@
 {
-  "name": "Transporte Saude",
-  "short_name": "TransSaude",
+  "name": "ROTA",
+  "short_name": "ROTA",
   "description": "Sistema de controle de transporte de saude municipal",
   "start_url": "/",
   "scope": "/",
@@ -24,3 +24,4 @@
     }
   ]
 }
+
