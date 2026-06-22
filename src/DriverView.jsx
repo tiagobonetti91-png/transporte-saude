@@ -20,6 +20,12 @@ const SC = {
 };
 
 const STATUS_ORDER = ["indefinido","embarcado","entregue","pronto","recolhido","ausente"];
+const STATUS_FLOW = ["indefinido","embarcado","entregue","pronto","recolhido"];
+function nextPassengerStatus(status) {
+  const current = STATUS_FLOW.includes(status) ? status : "indefinido";
+  const index = STATUS_FLOW.indexOf(current);
+  return STATUS_FLOW[(index + 1) % STATUS_FLOW.length];
+}
 function sortPax(paxList) { return [...paxList].sort((a,b)=>STATUS_ORDER.indexOf(a.status)-STATUS_ORDER.indexOf(b.status)); }
 
 // ── Modal KM ──────────────────────────────────────────────────────────────────
@@ -440,6 +446,8 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                   const isExp=expandido===p.id;
                   const trajeto=(!p.tipoTrajeto||p.tipoTrajeto==="ida_volta")?"↔ Ida e Volta":p.tipoTrajeto==="ida"?"→ Somente Ida":"← Somente Volta";
                   const trajetoColor=(!p.tipoTrajeto||p.tipoTrajeto==="ida_volta")?T.green:p.tipoTrajeto==="ida"?T.blue:T.yellow;
+                  const nextStatus=nextPassengerStatus(p.status);
+                  const nextSc=SC[nextStatus]||SC.indefinido;
 
                   return (
                     <div key={p.id} style={{ background:"#fff",borderRadius:14,marginBottom:8,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",border:"1px solid #e5e7eb",overflow:"hidden",opacity:faltou?0.65:1 }}>
@@ -465,23 +473,28 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                         {(p.acompanhantes?.length>0)&&<div style={{ marginTop:6,fontSize:11,color:T.purple,background:"#f5f3ff",borderRadius:6,padding:"3px 8px",display:"inline-block" }}>+{p.acompanhantes.length} acompanhante(s)</div>}
                       </div>
 
+                      <div style={{ padding:"0 14px 12px" }}>
+                        <button
+                          onClick={()=>handleStatusChange(viagem.id,p.id,nextStatus)}
+                          disabled={faltou}
+                          style={{ width:"100%",padding:"15px 14px",background:faltou?"#f3f4f6":nextSc.color,color:faltou?T.textMuted:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:faltou?"not-allowed":"pointer",fontFamily:"inherit",boxShadow:faltou?"none":"0 8px 18px "+nextSc.color+"33" }}>
+                          {faltou?"Marcado como faltou":"Mudar para "+nextSc.label}
+                        </button>
+                        <div style={{ marginTop:8,display:"flex",gap:8,flexWrap:"wrap" }}>
+                          <button onClick={()=>handleStatusChange(viagem.id,p.id,faltou?"indefinido":"ausente")}
+                            style={{ flex:"1 1 130px",padding:"10px 14px",background:faltou?"#fef2f2":"#fff",color:faltou?T.red:T.textSub,border:"1.5px solid "+(faltou?"#fca5a5":"#e5e7eb"),borderRadius:10,fontSize:13,fontWeight:faltou?800:700,cursor:"pointer",fontFamily:"inherit" }}>
+                            {faltou?"Desfazer faltou":"Marcar faltou"}
+                          </button>
+                          <button onClick={()=>setExpandido(isExp?null:p.id)}
+                            style={{ flex:"1 1 130px",padding:"10px 14px",background:"#fff",color:T.blue,border:"1.5px solid #bfdbfe",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+                            {isExp?"Ocultar detalhes":"Detalhes"}
+                          </button>
+                        </div>
+                      </div>
+
                       {isExp&&(
                         <div style={{ borderTop:"1px solid #f0f0f0",padding:"12px 14px",background:"#f8fafc" }}>
-                          {!faltou&&(
-                            <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:10 }}>
-                              {["embarcado","entregue","pronto","recolhido"].map(s=>(
-                                <button key={s} onClick={()=>handleStatusChange(viagem.id,p.id,s)}
-                                  style={{ padding:"8px 14px",background:p.status===s?SC[s].bg:"#fff",color:p.status===s?SC[s].color:T.textSub,border:"1.5px solid "+(p.status===s?SC[s].border:"#e5e7eb"),borderRadius:20,fontSize:12,fontWeight:p.status===s?700:500,cursor:"pointer",fontFamily:"inherit" }}>
-                                  {SC[s].label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
                           <div style={{ display:"flex",gap:8,marginBottom:10,flexWrap:"wrap" }}>
-                            <button onClick={()=>handleStatusChange(viagem.id,p.id,faltou?"indefinido":"ausente")}
-                              style={{ padding:"8px 16px",background:faltou?"#fef2f2":"#fff",color:faltou?T.red:T.textSub,border:"1.5px solid "+(faltou?"#fca5a5":"#e5e7eb"),borderRadius:20,fontSize:12,fontWeight:faltou?700:500,cursor:"pointer",fontFamily:"inherit" }}>
-                              {faltou?"↩ Desfazer Faltou":"✗ Faltou"}
-                            </button>
                             {/* Botao transferir */}
                             <button onClick={()=>setTransferModal({pax:p,viagem})}
                               style={{ padding:"8px 16px",background:"#f5f3ff",color:T.purple,border:"1.5px solid #c4b5fd",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
