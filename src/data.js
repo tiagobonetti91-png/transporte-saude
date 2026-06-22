@@ -88,34 +88,29 @@ async function sb(path, options = {}) {
 function onlyDigits(v) { return String(v||"").replace(/\D/g,""); }
 function motoristaEmailFromCpf(cpf) { return `${onlyDigits(cpf)}@transportesaude.app`; }
 
-async function criarAuthUser({ email, password, nome, perfil }) {
+async function criarUsuarioCompleto(d) {
+  const email = d.tipo === "motorista" ? motoristaEmailFromCpf(d.cpf) : d.email;
+  const perfil = d.tipo === "motorista" ? "motorista" : "admin";
   const res = await fetch("/api/criar-usuario", {
     method:"POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabase.auth.getToken()}` },
-    body: JSON.stringify({ email, password, nome, perfil }),
+    body: JSON.stringify({
+      email,
+      password:d.senha,
+      nome:d.nome,
+      perfil,
+      cnh:d.cnh||"",
+      telefone:d.telefone||"",
+      categoriaCnh:d.categoriaCnh||"B",
+      cargo:d.cargo||"",
+    }),
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data?.error || data?.msg || data?.message || "nao consegui criar o login do usuario";
+    const msg = data?.error || data?.message || "nao consegui criar o usuario";
     throw new Error(`Supabase Auth: ${msg}`);
   }
-  const user = data.user || data;
-  if (!user?.id) throw new Error("Supabase Auth: usuario criado sem identificador");
-  return user;
-}
-
-async function criarPerfilUsuario(payload) {
-  const tentativas = [
-    payload,
-    Object.fromEntries(Object.entries(payload).filter(([k]) => !["email"].includes(k))),
-    Object.fromEntries(Object.entries(payload).filter(([k]) => !["email","nome"].includes(k))),
-  ];
-  let ultimoErro = null;
-  for (const body of tentativas) {
-    try { return await sb("perfis", { method:"POST", body: JSON.stringify(body) }); }
-    catch(e) { ultimoErro = e; }
-  }
-  throw ultimoErro;
+  return data.registro ? [data.registro] : [];
 }
 
 export const apiPacientes = {
@@ -133,22 +128,7 @@ export const apiDestinos = {
 export const apiMotoristas = {
   async listar() { return sb("motoristas_ativos?select=*&order=nome"); },
   async criar(d) {
-    const criarLogin = d.senha && d.cpf;
-    const user = criarLogin
-      ? await criarAuthUser({ email:motoristaEmailFromCpf(d.cpf), password:d.senha, nome:d.nome, perfil:"motorista" })
-      : null;
-    const motoristas = await sb("motoristas", { method:"POST", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) });
-    if (user) {
-      await criarPerfilUsuario({
-        id:user.id,
-        perfil:"motorista",
-        nome:d.nome,
-        email:motoristaEmailFromCpf(d.cpf),
-        motorista_id:motoristas?.[0]?.id,
-        ativo:true,
-      });
-    }
-    return motoristas;
+    return sb("motoristas", { method:"POST", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) });
   },
   async atualizar(id, d) { return sb(`motoristas?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, cnh:d.cnh, telefone:d.telefone, categoria_cnh:d.categoriaCnh }) }); },
   async deletar(id) { return sb(`motoristas?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
@@ -162,36 +142,7 @@ export const apiVeiculos = {
 export const apiAdmins = {
   async listar() { return sb("admins?select=*&order=nome"); },
   async criar(d) {
-    if (d.tipo === "motorista") {
-      const emailLogin = motoristaEmailFromCpf(d.cpf);
-      const user = await criarAuthUser({ email:emailLogin, password:d.senha, nome:d.nome, perfil:"motorista" });
-      const motoristas = await sb("motoristas", { method:"POST", body: JSON.stringify({
-        nome:d.nome,
-        cnh:d.cnh||"",
-        telefone:d.telefone||"",
-        categoria_cnh:d.categoriaCnh||"B",
-      }) });
-      await criarPerfilUsuario({
-        id:user.id,
-        perfil:"motorista",
-        nome:d.nome,
-        email:emailLogin,
-        motorista_id:motoristas?.[0]?.id,
-        ativo:true,
-      });
-      return motoristas;
-    }
-
-    const user = await criarAuthUser({ email:d.email, password:d.senha, nome:d.nome, perfil:"admin" });
-    const admins = await sb("admins", { method:"POST", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) });
-    await criarPerfilUsuario({
-      id:user.id,
-      perfil:"admin",
-      nome:d.nome,
-      email:d.email,
-      ativo:true,
-    });
-    return admins;
+    return criarUsuarioCompleto(d);
   },
   async atualizar(id, d) { return sb(`admins?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) }); },
   async deletar(id) { return sb(`admins?id=eq.${id}`, { method:"DELETE", prefer:"" }); },

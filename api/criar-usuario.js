@@ -47,6 +47,31 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
+async function insertRest(table, body) {
+  return supabaseFetch(`/rest/v1/${table}`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function insertPerfil(body) {
+  const tentativas = [
+    body,
+    Object.fromEntries(Object.entries(body).filter(([key]) => key !== "email")),
+    Object.fromEntries(Object.entries(body).filter(([key]) => !["email", "nome"].includes(key))),
+  ];
+  let ultimoErro = null;
+  for (const tentativa of tentativas) {
+    try {
+      return await insertRest("perfis", tentativa);
+    } catch (error) {
+      ultimoErro = error;
+    }
+  }
+  throw ultimoErro;
+}
+
 async function validarAdmin(authHeader) {
   if (!authHeader) throw new Error("Sessao expirada. Entre novamente no sistema.");
 
@@ -84,6 +109,10 @@ export default async function handler(req, res) {
     const password = String(body.password || "");
     const nome = String(body.nome || "").trim();
     const perfil = String(body.perfil || "admin").trim();
+    const cnh = String(body.cnh || "").trim();
+    const telefone = String(body.telefone || "").trim();
+    const categoriaCnh = String(body.categoriaCnh || "B").trim();
+    const cargo = String(body.cargo || "").trim();
 
     if (!email || !email.includes("@")) throw new Error("Informe um e-mail valido para o usuario.");
     if (password.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
@@ -98,7 +127,37 @@ export default async function handler(req, res) {
       }),
     });
 
-    send(res, 200, { user });
+    if (perfil === "motorista") {
+      const motoristas = await insertRest("motoristas", {
+        nome,
+        cnh,
+        telefone,
+        categoria_cnh: categoriaCnh || "B",
+      });
+      const motorista = motoristas?.[0];
+      await insertPerfil({
+        id: user.id,
+        perfil: "motorista",
+        nome,
+        email,
+        motorista_id: motorista?.id,
+        ativo: true,
+      });
+      send(res, 200, { user, registro: motorista });
+      return;
+    }
+
+    const admins = await insertRest("admins", { nome, email, cargo });
+    const admin = admins?.[0];
+    await insertPerfil({
+      id: user.id,
+      perfil: "admin",
+      nome,
+      email,
+      ativo: true,
+    });
+
+    send(res, 200, { user, registro: admin });
   } catch (error) {
     send(res, 400, { error: error.message || "Erro ao criar usuario." });
   }
