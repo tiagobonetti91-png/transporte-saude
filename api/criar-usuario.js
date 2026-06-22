@@ -55,6 +55,35 @@ async function insertRest(table, body) {
   });
 }
 
+async function selectRest(table, query) {
+  return supabaseFetch(`/rest/v1/${table}?${query}`);
+}
+
+async function findAuthUserByEmail(email) {
+  const data = await supabaseFetch(`/auth/v1/admin/users?page=1&per_page=1000`);
+  const users = Array.isArray(data?.users) ? data.users : [];
+  return users.find(user => String(user.email || "").toLowerCase() === email) || null;
+}
+
+async function createOrFindAuthUser({ email, password, nome, perfil }) {
+  try {
+    return await supabaseFetch("/auth/v1/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { nome, perfil },
+      }),
+    });
+  } catch (error) {
+    if (!String(error.message || "").toLowerCase().includes("already")) throw error;
+    const user = await findAuthUserByEmail(email);
+    if (!user?.id) throw error;
+    return user;
+  }
+}
+
 async function insertPerfil(body) {
   const tentativas = [
     body,
@@ -70,6 +99,12 @@ async function insertPerfil(body) {
     }
   }
   throw ultimoErro;
+}
+
+async function ensurePerfil(body) {
+  const existente = await selectRest("perfis", `id=eq.${body.id}&select=id`);
+  if (existente?.length) return existente[0];
+  return insertPerfil(body);
 }
 
 async function validarAdmin(authHeader) {
@@ -117,25 +152,19 @@ export default async function handler(req, res) {
     if (!email || !email.includes("@")) throw new Error("Informe um e-mail valido para o usuario.");
     if (password.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
 
-    const user = await supabaseFetch("/auth/v1/admin/users", {
-      method: "POST",
-      body: JSON.stringify({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { nome, perfil },
-      }),
-    });
+    const user = await createOrFindAuthUser({ email, password, nome, perfil });
 
     if (perfil === "motorista") {
-      const motoristas = await insertRest("motoristas", {
+      const cnhQuery = cnh ? `cnh=eq.${encodeURIComponent(cnh)}&select=*` : "";
+      const existentes = cnhQuery ? await selectRest("motoristas", cnhQuery) : [];
+      const motoristas = existentes?.length ? existentes : await insertRest("motoristas", {
         nome,
         cnh,
         telefone,
         categoria_cnh: categoriaCnh || "B",
       });
       const motorista = motoristas?.[0];
-      await insertPerfil({
+      await ensurePerfil({
         id: user.id,
         perfil: "motorista",
         nome,
@@ -147,9 +176,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    const admins = await insertRest("admins", { nome, email, cargo });
+    const existentes = await selectRest("admins", `email=eq.${encodeURIComponent(email)}&select=*`);
+    const admins = existentes?.length ? existentes : await insertRest("admins", { nome, email, cargo });
     const admin = admins?.[0];
-    await insertPerfil({
+    await ensurePerfil({
       id: user.id,
       perfil: "admin",
       nome,
