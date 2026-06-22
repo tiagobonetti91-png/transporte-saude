@@ -162,20 +162,35 @@ export const apiVeiculos = {
 export const apiAdmins = {
   async listar() { return sb("admins?select=*&order=nome"); },
   async criar(d) {
-    const criarLogin = d.senha && d.email;
-    const user = criarLogin
-      ? await criarAuthUser({ email:d.email, password:d.senha, nome:d.nome, perfil:"admin" })
-      : null;
-    const admins = await sb("admins", { method:"POST", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) });
-    if (user) {
+    if (d.tipo === "motorista") {
+      const emailLogin = motoristaEmailFromCpf(d.cpf);
+      const user = await criarAuthUser({ email:emailLogin, password:d.senha, nome:d.nome, perfil:"motorista" });
+      const motoristas = await sb("motoristas", { method:"POST", body: JSON.stringify({
+        nome:d.nome,
+        cnh:d.cnh||"",
+        telefone:d.telefone||"",
+        categoria_cnh:d.categoriaCnh||"B",
+      }) });
       await criarPerfilUsuario({
         id:user.id,
-        perfil:"admin",
+        perfil:"motorista",
         nome:d.nome,
-        email:d.email,
+        email:emailLogin,
+        motorista_id:motoristas?.[0]?.id,
         ativo:true,
       });
+      return motoristas;
     }
+
+    const user = await criarAuthUser({ email:d.email, password:d.senha, nome:d.nome, perfil:"admin" });
+    const admins = await sb("admins", { method:"POST", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) });
+    await criarPerfilUsuario({
+      id:user.id,
+      perfil:"admin",
+      nome:d.nome,
+      email:d.email,
+      ativo:true,
+    });
     return admins;
   },
   async atualizar(id, d) { return sb(`admins?id=eq.${id}`, { method:"PATCH", body: JSON.stringify({ nome:d.nome, email:d.email, cargo:d.cargo }) }); },

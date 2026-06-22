@@ -42,29 +42,23 @@ export function ModalDestino({ item, onSave, onClose }) {
 }
 
 export function ModalMotorista({ item, onSave, onClose }) {
-  const [f,setF]=useState(item||{nome:"",cpf:"",cnh:"",telefone:"",categoriaCnh:"B",senha:""});
-  const cpfOk = item || f.cpf.replace(/\D/g,"").length === 11;
-  const senhaOk = item || f.senha.length >= 6;
+  const [f,setF]=useState(item||{nome:"",cnh:"",telefone:"",categoriaCnh:"B"});
   return (
     <div style={S.modal}><div style={S.modalBox}>
       <ModalHdr title={item?"Editar Motorista":"Novo Motorista"} onClose={onClose}/>
       <Inp label="Nome Completo" value={f.nome} onChange={e=>setF(p=>({...p,nome:e.target.value}))}/>
-      {!item && <Inp label="CPF para login" value={f.cpf} onChange={e=>setF(p=>({...p,cpf:e.target.value}))} placeholder="000.000.000-00"/>}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         <Inp label="CNH" value={f.cnh} onChange={e=>setF(p=>({...p,cnh:e.target.value}))}/>
         <Sel label="Categoria" value={f.categoriaCnh} onChange={v=>setF(p=>({...p,categoriaCnh:v}))} options={["A","B","C","D","E"].map(c=>({value:c,label:"Cat. "+c}))}/>
       </div>
       <Inp label="Telefone" value={f.telefone} onChange={e=>setF(p=>({...p,telefone:e.target.value}))}/>
-      {!item && <Inp label="Senha de acesso" type="password" value={f.senha} onChange={e=>setF(p=>({...p,senha:e.target.value}))} placeholder="mínimo 6 caracteres"/>}
-      {!item && <div style={{ fontSize:11,color:"#64748b",marginTop:-6,marginBottom:8 }}>O motorista vai entrar pelo CPF e por esta senha.</div>}
       <div style={{ display:"flex", gap:10, marginTop:8 }}>
-        <Btn full onClick={()=>onSave(f)} color="#10b981" disabled={!f.nome||!cpfOk||!senhaOk}>Salvar</Btn>
+        <Btn full onClick={()=>onSave(f)} color="#10b981" disabled={!f.nome}>Salvar</Btn>
         <Btn full onClick={onClose} color="#475569">Cancelar</Btn>
       </div>
     </div></div>
   );
 }
-
 export function ModalVeiculo({ item, onSave, onClose }) {
   const [f,setF]=useState(item||{placa:"",modelo:"",capacidade:7,tipo:"Van Pequena",ano:2024,cor:"Branco",kmAtual:0,combustivel:"Gasolina",consumoMedio:10});
   return (
@@ -94,24 +88,59 @@ export function ModalVeiculo({ item, onSave, onClose }) {
 }
 
 export function ModalAdmin({ item, onSave, onClose }) {
-  const [f,setF]=useState(item||{nome:"",email:"",cargo:"",senha:""});
+  const [f,setF]=useState(item||{tipo:"motorista",nome:"",cpf:"",email:"",cargo:"",cnh:"",telefone:"",categoriaCnh:"B",senha:""});
+  const isMotorista = f.tipo === "motorista";
+  const cpfOk = !isMotorista || f.cpf.replace(/\D/g,"").length === 11;
+  const emailOk = isMotorista || f.email.includes("@");
   const senhaOk = item || f.senha.length >= 6;
+  const podeSalvar = item ? f.nome : f.nome && senhaOk && cpfOk && emailOk;
   return (
     <div style={S.modal}><div style={S.modalBox}>
-      <ModalHdr title={item?"Editar Usuario":"Novo Usuario Admin"} onClose={onClose}/>
+      <ModalHdr title={item?"Editar Usuario":"Novo Usuario"} onClose={onClose}/>
+      {!item && (
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14 }}>
+          <button onClick={()=>setF(p=>({...p,tipo:"motorista"}))}
+            style={{ padding:"12px",border:"1.5px solid "+(isMotorista?"#10b981":"#dde3ed"),borderRadius:12,background:isMotorista?"#ecfdf5":"#fff",color:isMotorista?"#059669":"#475569",fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
+            Motorista
+          </button>
+          <button onClick={()=>setF(p=>({...p,tipo:"admin"}))}
+            style={{ padding:"12px",border:"1.5px solid "+(!isMotorista?"#10b981":"#dde3ed"),borderRadius:12,background:!isMotorista?"#ecfdf5":"#fff",color:!isMotorista?"#059669":"#475569",fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
+            Secretaria
+          </button>
+        </div>
+      )}
       <Inp label="Nome Completo" value={f.nome} onChange={e=>setF(p=>({...p,nome:e.target.value}))}/>
-      <Inp label="E-mail" type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))}/>
-      <Inp label="Cargo / Funcao" value={f.cargo} onChange={e=>setF(p=>({...p,cargo:e.target.value}))}/>
-      {!item && <Inp label="Senha de acesso" type="password" value={f.senha} onChange={e=>setF(p=>({...p,senha:e.target.value}))} placeholder="mínimo 6 caracteres"/>}
-      {!item && <div style={{ fontSize:11,color:"#64748b",marginTop:-6,marginBottom:8 }}>O admin vai entrar pelo e-mail e por esta senha.</div>}
+      {!item && isMotorista && (
+        <>
+          <Inp label="CPF para login" value={f.cpf} onChange={e=>setF(p=>({...p,cpf:e.target.value}))} placeholder="000.000.000-00"/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Inp label="CNH" value={f.cnh} onChange={e=>setF(p=>({...p,cnh:e.target.value}))}/>
+            <Sel label="Categoria" value={f.categoriaCnh} onChange={v=>setF(p=>({...p,categoriaCnh:v}))} options={["A","B","C","D","E"].map(c=>({value:c,label:"Cat. "+c}))}/>
+          </div>
+          <Inp label="Telefone" value={f.telefone} onChange={e=>setF(p=>({...p,telefone:e.target.value}))}/>
+        </>
+      )}
+      {!item && !isMotorista && (
+        <>
+          <Inp label="E-mail para login" type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))}/>
+          <Inp label="Cargo / Funcao" value={f.cargo} onChange={e=>setF(p=>({...p,cargo:e.target.value}))}/>
+        </>
+      )}
+      {item && (
+        <>
+          <Inp label="E-mail" type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))}/>
+          <Inp label="Cargo / Funcao" value={f.cargo} onChange={e=>setF(p=>({...p,cargo:e.target.value}))}/>
+        </>
+      )}
+      {!item && <Inp label="Senha de acesso" type="password" value={f.senha} onChange={e=>setF(p=>({...p,senha:e.target.value}))} placeholder="minimo 6 caracteres"/>}
+      {!item && <div style={{ fontSize:11,color:"#64748b",marginTop:-6,marginBottom:8 }}>{isMotorista?"O motorista vai entrar pelo CPF e por esta senha. Ele tambem sera cadastrado automaticamente em Motoristas.":"O usuario da secretaria vai entrar pelo e-mail e por esta senha."}</div>}
       <div style={{ display:"flex", gap:10, marginTop:8 }}>
-        <Btn full onClick={()=>onSave(f)} color="#10b981" disabled={!f.nome||!f.email||!senhaOk}>Salvar</Btn>
+        <Btn full onClick={()=>onSave(f)} color="#10b981" disabled={!podeSalvar}>Salvar</Btn>
         <Btn full onClick={onClose} color="#475569">Cancelar</Btn>
       </div>
     </div></div>
   );
 }
-
 export function ModalViagem({ item, veiculos, motoristas, pacientes, destinos, onSave, onClose, salvando }) {
   const [form,setForm]=useState(item
     ?{id:item.id,data:item.data,horarioSaida:item.horarioSaida,veiculoId:item.veiculo.id,motoristaId:item.motorista.id,passageiros:item.passageiros,status:item.status,abastecimento:item.abastecimento||null}

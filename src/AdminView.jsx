@@ -158,6 +158,11 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
         setDb(prev => ({ ...prev, [key]: prev[key].map(x => x.id===item.id ? {...x,...item} : x) }));
       } else {
         const [novo] = await api.criar(item);
+        if (key === "admins") {
+          await recarregar();
+          closeModal();
+          return;
+        }
         setDb(prev => ({ ...prev, [key]: [...prev[key], mapper(novo)] }));
       }
       closeModal();
@@ -353,7 +358,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
             {tab==="clinicas"   && <Btn onClick={()=>setModal({type:"destino",item:null})}   color="#10b981" small>+ Clínica</Btn>}
             {tab==="motoristas" && <Btn onClick={()=>setModal({type:"motorista",item:null})} color="#10b981" small>+ Motorista</Btn>}
             {tab==="veiculos"   && <Btn onClick={()=>setModal({type:"veiculo",item:null})}   color="#10b981" small>+ Veículo</Btn>}
-            {tab==="admins"     && <Btn onClick={()=>setModal({type:"admin",item:null})}     color="#10b981" small>+ Usuário</Btn>}
+            {tab==="admins"     && <Btn onClick={()=>setModal({type:"admin",item:null})}     color="#10b981" small>+ Usuario</Btn>}
           </div>
         </div>
       </div>
@@ -441,7 +446,7 @@ export default function AdminView({ db, setDb, viagens, setViagens, onStatusChan
           {tab==="clinicas"   && <CrudList title="Clínicas e Hospitais" icon="🏥" items={db.destinos} renderRow={d=><div><div style={{ fontSize:14,fontWeight:700,color:"#e2e8f0" }}>{d.nome}</div><div style={{ fontSize:12,color:"#a78bfa" }}>{d.especialidade} · {d.cidade}</div><div style={{ fontSize:11,color:"#64748b" }}>{d.endereco}</div></div>} onNew={()=>setModal({type:"destino",item:null})} onEdit={item=>setModal({type:"destino",item})} onDelete={id=>crudDelete("destinos",id)}/>}
           {tab==="motoristas" && <CrudList title="Motoristas" icon="🧑‍✈️" items={db.motoristas} renderRow={m=><div><div style={{ fontSize:14,fontWeight:700,color:"#e2e8f0" }}>{m.nome}</div><div style={{ fontSize:12,color:"#64748b" }}>CNH {m.cnh} · Cat. {m.categoriaCnh} · {m.telefone}</div></div>} onNew={()=>setModal({type:"motorista",item:null})} onEdit={item=>setModal({type:"motorista",item})} onDelete={id=>crudDelete("motoristas",id)}/>}
           {tab==="veiculos"   && <CrudList title="Frota" icon="🚗" items={db.veiculos} renderRow={v=><div><div style={{ fontSize:14,fontWeight:700,color:"#e2e8f0" }}>{v.placa} — {v.modelo}</div><div style={{ fontSize:12,color:"#64748b" }}>{v.tipo} · {v.capacidade} lug. · {v.combustivel} · {v.consumoMedio}km/l</div><div style={{ fontSize:11,color:"#475569" }}>KM: {v.kmAtual?.toLocaleString()}</div></div>} onNew={()=>setModal({type:"veiculo",item:null})} onEdit={item=>setModal({type:"veiculo",item})} onDelete={id=>crudDelete("veiculos",id)}/>}
-          {tab==="admins"     && <CrudList title="Usuários Admin" icon="👤" items={db.admins} renderRow={a=><div><div style={{ fontSize:14,fontWeight:700,color:"#e2e8f0" }}>{a.nome}</div><div style={{ fontSize:12,color:"#64748b" }}>{a.email}</div><div style={{ fontSize:11,color:"#a78bfa" }}>{a.cargo}</div></div>} onNew={()=>setModal({type:"admin",item:null})} onEdit={item=>setModal({type:"admin",item})} onDelete={id=>crudDelete("admins",id)}/>}
+          {tab==="admins" && <CrudList title="Usuarios do Sistema" icon="US" items={[...db.admins.map(a=>({...a,tipoUsuario:"Secretaria"})),...db.motoristas.map(m=>({...m,tipoUsuario:"Motorista",email:"Login por CPF",cargo:"Motorista"}))]} renderRow={u=><div><div style={{ fontSize:14,fontWeight:700,color:"#e2e8f0" }}>{u.nome}</div><div style={{ fontSize:12,color:"#64748b" }}>{u.tipoUsuario} - {u.email}</div><div style={{ fontSize:11,color:"#a78bfa" }}>{u.cargo}</div></div>} onNew={()=>setModal({type:"admin",item:null})} onEdit={item=>item.tipoUsuario==="Motorista"?setModal({type:"motorista",item}):setModal({type:"admin",item})} onDelete={id=>alert("Para remover acesso de usuario com seguranca, primeiro inative/remova no Supabase Auth. Depois podemos automatizar isso com uma funcao segura.")}/>}
         </div>
       )}
     </div>
