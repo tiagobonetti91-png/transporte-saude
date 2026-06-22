@@ -478,7 +478,7 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
                           onClick={()=>handleStatusChange(viagem.id,p.id,nextStatus)}
                           disabled={faltou}
                           style={{ width:"100%",padding:"15px 14px",background:faltou?"#f3f4f6":nextSc.color,color:faltou?T.textMuted:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:faltou?"not-allowed":"pointer",fontFamily:"inherit",boxShadow:faltou?"none":"0 8px 18px "+nextSc.color+"33" }}>
-                          {faltou?"Marcado como faltou":"Mudar para "+nextSc.label}
+                          {faltou?"Marcado como faltou":nextSc.label}
                         </button>
                         <div style={{ marginTop:8,display:"flex",gap:8,flexWrap:"wrap" }}>
                           <button onClick={()=>handleStatusChange(viagem.id,p.id,faltou?"indefinido":"ausente")}
