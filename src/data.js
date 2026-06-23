@@ -80,7 +80,13 @@ async function sb(path, options = {}) {
     },
     ...options,
   });
-  if (!res.ok) { const err = await res.text(); throw new Error(`Supabase: ${err}`); }
+  if (!res.ok) {
+    const err = await res.text();
+    if (err.includes("transferencias") && (err.includes("schema cache") || err.includes("does not exist") || err.includes("PGRST205"))) {
+      throw new Error("A tabela de transferencias ainda nao existe no Supabase. Execute o arquivo supabase-transferencias.sql no SQL Editor.");
+    }
+    throw new Error(`Supabase: ${err}`);
+  }
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
