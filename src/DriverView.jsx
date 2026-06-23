@@ -187,7 +187,7 @@ function BannerTransferencias({ pendentes, viagens, motoristas, onAceitar, onRec
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DriverView({ viagens, setViagens, onStatusChange, onAssinatura, onAbastecimento, motoristaId, motoristas }) {
+export default function DriverView({ viagens, setViagens, onStatusChange, onAssinatura, onAbastecimento, motoristaId, motoristas, isOnline=true, pendingSync=0, syncing=false, onLogout }) {
   const [tab,setTab]=useState("roteiro");
   const [assinaturaModal,setAssinaturaModal]=useState(null);
   const [abastModal,setAbastModal]=useState(null);
@@ -348,6 +348,23 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
 
       {/* Header */}
       <div style={{ background:T.headerBg,padding:"20px 20px 16px",color:"#fff" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:14 }}>
+          <div style={{ display:"flex",gap:6,alignItems:"center",minWidth:0 }}>
+            {(!isOnline || pendingSync > 0 || syncing) && (
+              <span style={{ background:isOnline?"#fffbeb":"#fef2f2",color:isOnline?"#92400e":"#991b1b",border:"1px solid "+(isOnline?"#fcd34d":"#fca5a5"),borderRadius:999,padding:"4px 10px",fontSize:11,fontWeight:800,whiteSpace:"nowrap" }}>
+                {!isOnline ? "Offline" : syncing ? "Sincronizando" : `${pendingSync} pendente(s)`}
+              </span>
+            )}
+            <span style={{ background:"rgba(15,23,42,0.28)",border:"1px solid rgba(255,255,255,0.16)",borderRadius:999,padding:"4px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:170 }}>
+              {motorista.nome}
+            </span>
+          </div>
+          {onLogout&&(
+            <button onClick={onLogout} style={{ background:"rgba(15,23,42,0.42)",color:"#fff",border:"1px solid rgba(255,255,255,0.18)",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",flexShrink:0 }}>
+              Sair
+            </button>
+          )}
+        </div>
         <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:10 }}>
           <div style={{ width:44,height:44,borderRadius:12,background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22 }}>🚐</div>
           <div>

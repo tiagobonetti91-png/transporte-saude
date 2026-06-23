@@ -283,7 +283,7 @@ export default function App() {
       <style>{GS}</style>
 
       {/* Botão logout fixo quando logado */}
-      {authState === "logado" && !painelPaciente && (
+      {authState === "logado" && !painelPaciente && perfil?.perfil !== "motorista" && (
         <div style={{ position:"fixed", top:10, right:10, zIndex:300, display:"flex", gap:8, alignItems:"center" }}>
           {(!isOnline || pendingSync > 0 || syncing) && (
             <div style={{ fontSize:11, color:isOnline?"#92400e":"#991b1b", background:isOnline?"#fffbeb":"#fef2f2", borderRadius:8, padding:"4px 10px", border:"1px solid "+(isOnline?"#fcd34d":"#fca5a5"), fontWeight:700 }}>
@@ -309,6 +309,10 @@ export default function App() {
                 onAbastecimento={handleAbastecimento}
                 motoristaId={perfil.motorista_id}
                 motoristas={db.motoristas}
+                isOnline={isOnline}
+                pendingSync={pendingSync}
+                syncing={syncing}
+                onLogout={handleLogout}
               />
             : <AdminView
                 db={db} setDb={setDb}
