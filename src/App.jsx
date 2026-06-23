@@ -8,6 +8,7 @@ import PainelPaciente from './PainelPaciente.jsx';
 
 const OFFLINE_CACHE_KEY = "rota_offline_cache_v1";
 const OFFLINE_QUEUE_KEY = "rota_offline_queue_v1";
+const OFFLINE_SESSION_KEY = "rota_offline_session_v1";
 
 const GS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
@@ -64,17 +65,44 @@ export default function App() {
   // Verificar sessão salva ao abrir o app
   useEffect(() => {
     async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session?.user) {
-        const { data: perfData } = await supabase.from("perfis").select("*").eq("id", data.session.user.id).single();
-        if (perfData?.ativo) {
-          setSession({ user: data.session.user, perfil: perfData });
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user) {
+          if (!navigator.onLine) {
+            const offlineSession = readStoredJson(OFFLINE_SESSION_KEY, null);
+            if (offlineSession?.perfil?.ativo) {
+              setSession({ user:data.session.user, perfil:offlineSession.perfil });
+              setAuthState("logado");
+              return;
+            }
+          }
+
+          const { data: perfData } = await supabase.from("perfis").select("*").eq("id", data.session.user.id).single();
+          if (perfData?.ativo) {
+            const nextSession = { user: data.session.user, perfil: perfData };
+            setSession(nextSession);
+            writeStoredJson(OFFLINE_SESSION_KEY, nextSession);
+            setAuthState("logado");
+          } else {
+            setAuthState("deslogado");
+          }
+        } else {
+          const offlineSession = readStoredJson(OFFLINE_SESSION_KEY, null);
+          if (!navigator.onLine && offlineSession?.perfil?.ativo) {
+            setSession(offlineSession);
+            setAuthState("logado");
+            return;
+          }
+          setAuthState("deslogado");
+        }
+      } catch(e) {
+        const offlineSession = readStoredJson(OFFLINE_SESSION_KEY, null);
+        if (offlineSession?.perfil?.ativo) {
+          setSession(offlineSession);
           setAuthState("logado");
         } else {
           setAuthState("deslogado");
         }
-      } else {
-        setAuthState("deslogado");
       }
     }
     checkSession();
@@ -88,6 +116,15 @@ export default function App() {
   const carregarTudo = useCallback(async () => {
     try {
       setLoading(true);
+      if (!navigator.onLine) {
+        const cache = readStoredJson(OFFLINE_CACHE_KEY, null);
+        if (cache?.db && cache?.viagens) {
+          setDb(cache.db);
+          setViagens(cache.viagens);
+        }
+        return;
+      }
+
       const [pacientes, destinos, motoristas, veiculos, admins, viagens] = await Promise.all([
         apiPacientes.listar(), apiDestinos.listar(), apiMotoristas.listar(),
         apiVeiculos.listar(), apiAdmins.listar(), apiViagens.listar(),
@@ -186,12 +223,15 @@ export default function App() {
   }, [authState, isOnline, syncOfflineQueue]);
 
   async function handleLogin(user, perfil) {
-    setSession({ user, perfil });
+    const nextSession = { user, perfil };
+    setSession(nextSession);
+    writeStoredJson(OFFLINE_SESSION_KEY, nextSession);
     setAuthState("logado");
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
+    localStorage.removeItem(OFFLINE_SESSION_KEY);
     setSession(null);
     setAuthState("deslogado");
     setViagens([]);
