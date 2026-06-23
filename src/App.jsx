@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, apiPacientes, apiDestinos, apiMotoristas, apiVeiculos, apiAdmins, apiViagens, mapPaciente, mapDestino, mapMotorista, mapVeiculo, fmtDate, TODAY } from './data.js';
 import { Btn } from './UI.jsx';
 import LoginScreen from './Auth.jsx';
 import DriverView from './DriverView.jsx';
 import AdminView from './AdminView.jsx';
 import PainelPaciente from './PainelPaciente.jsx';
+
+const OFFLINE_CACHE_KEY = "rota_offline_cache_v1";
+const OFFLINE_QUEUE_KEY = "rota_offline_queue_v1";
 
 const GS = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
@@ -28,6 +31,24 @@ function Loading({ msg="Carregando..." }) {
   );
 }
 
+function readStoredJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch(e) {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) {}
+}
+
+function isNetworkError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return !navigator.onLine || msg.includes("failed to fetch") || msg.includes("network") || msg.includes("fetch");
+}
+
 export default function App() {
   const [authState, setAuthState] = useState("checking"); // checking | logado | deslogado
   const [session, setSession] = useState(null);   // { user, perfil }
@@ -35,6 +56,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [viagens, setViagens] = useState([]);
   const [db, setDb] = useState({ pacientes:[], destinos:[], motoristas:[], veiculos:[], admins:[] });
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncing, setSyncing] = useState(false);
+  const [pendingSync, setPendingSync] = useState(() => readStoredJson(OFFLINE_QUEUE_KEY, []).length);
+  const syncingRef = useRef(false);
 
   // Verificar sessão salva ao abrir o app
   useEffect(() => {
@@ -67,22 +92,98 @@ export default function App() {
         apiPacientes.listar(), apiDestinos.listar(), apiMotoristas.listar(),
         apiVeiculos.listar(), apiAdmins.listar(), apiViagens.listar(),
       ]);
-      setDb({
+      const nextDb = {
         pacientes: (pacientes||[]).map(mapPaciente),
         destinos:  (destinos||[]).map(mapDestino),
         motoristas:(motoristas||[]).map(mapMotorista),
         veiculos:  (veiculos||[]).map(mapVeiculo),
         admins:    admins||[],
-      });
-      setViagens(viagens||[]);
-    } catch(e) { console.error(e); }
+      };
+      const nextViagens = viagens||[];
+      setDb(nextDb);
+      setViagens(nextViagens);
+      writeStoredJson(OFFLINE_CACHE_KEY, { db:nextDb, viagens:nextViagens, savedAt:Date.now() });
+    } catch(e) {
+      console.error(e);
+      const cache = readStoredJson(OFFLINE_CACHE_KEY, null);
+      if (cache?.db && cache?.viagens) {
+        setDb(cache.db);
+        setViagens(cache.viagens);
+      }
+    }
     finally { setLoading(false); }
   }, []);
+
+  function enqueueOfflineAction(action) {
+    const queue = readStoredJson(OFFLINE_QUEUE_KEY, []);
+    const next = [...queue, { ...action, id:Date.now()+"-"+Math.random().toString(16).slice(2) }];
+    writeStoredJson(OFFLINE_QUEUE_KEY, next);
+    setPendingSync(next.length);
+  }
+
+  const syncOfflineQueue = useCallback(async () => {
+    if (!navigator.onLine || syncingRef.current) return;
+    const queue = readStoredJson(OFFLINE_QUEUE_KEY, []);
+    if (queue.length === 0) { setPendingSync(0); return; }
+
+    syncingRef.current = true;
+    setSyncing(true);
+    const remaining = [];
+    for (let index = 0; index < queue.length; index++) {
+      const action = queue[index];
+      try {
+        if (action.type === "status") {
+          await apiViagens.atualizarStatusPassageiro(action.paxId, action.status);
+        } else if (action.type === "assinatura") {
+          await apiViagens.atualizarAssinatura(action.paxId, action.assinatura);
+        } else if (action.type === "abastecimento") {
+          await apiViagens.atualizarAbastecimento(action.viagemId, action.abastecimento);
+        }
+      } catch(e) {
+        remaining.push(action);
+        if (isNetworkError(e)) {
+          remaining.push(...queue.slice(index + 1));
+          break;
+        }
+      }
+    }
+    writeStoredJson(OFFLINE_QUEUE_KEY, remaining);
+    setPendingSync(remaining.length);
+    syncingRef.current = false;
+    setSyncing(false);
+    if (remaining.length === 0) carregarTudo();
+  }, [carregarTudo]);
 
   // Carregar dados quando logar
   useEffect(() => {
     if (authState === "logado") carregarTudo();
   }, [authState, carregarTudo]);
+
+  useEffect(() => {
+    if (authState !== "logado") return;
+    const hasData = viagens.length > 0 || Object.values(db).some(list => Array.isArray(list) && list.length > 0);
+    if (!hasData) return;
+    writeStoredJson(OFFLINE_CACHE_KEY, { db, viagens, savedAt:Date.now() });
+  }, [authState, db, viagens]);
+
+  useEffect(() => {
+    function online() {
+      setIsOnline(true);
+      syncOfflineQueue();
+      carregarTudo();
+    }
+    function offline() { setIsOnline(false); }
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
+  }, [carregarTudo, syncOfflineQueue]);
+
+  useEffect(() => {
+    if (authState === "logado" && isOnline) syncOfflineQueue();
+  }, [authState, isOnline, syncOfflineQueue]);
 
   async function handleLogin(user, perfil) {
     setSession({ user, perfil });
@@ -101,19 +202,34 @@ export default function App() {
     setViagens(prev => prev.map(v => v.id !== viagemId ? v : {
       ...v, passageiros: v.passageiros.map(p => p.id !== paxId ? p : { ...p, status: newStatus })
     }));
-    await apiViagens.atualizarStatusPassageiro(paxId, newStatus);
+    try {
+      await apiViagens.atualizarStatusPassageiro(paxId, newStatus);
+    } catch(e) {
+      if (!isNetworkError(e)) throw e;
+      enqueueOfflineAction({ type:"status", paxId, status:newStatus });
+    }
   }
 
   async function handleAssinatura(viagemId, paxId, svg) {
     setViagens(prev => prev.map(v => v.id !== viagemId ? v : {
       ...v, passageiros: v.passageiros.map(p => p.id !== paxId ? p : { ...p, assinatura: svg })
     }));
-    await apiViagens.atualizarAssinatura(paxId, svg);
+    try {
+      await apiViagens.atualizarAssinatura(paxId, svg);
+    } catch(e) {
+      if (!isNetworkError(e)) throw e;
+      enqueueOfflineAction({ type:"assinatura", paxId, assinatura:svg });
+    }
   }
 
   async function handleAbastecimento(viagemId, dados) {
     setViagens(prev => prev.map(v => v.id !== viagemId ? v : { ...v, abastecimento: dados }));
-    await apiViagens.atualizarAbastecimento(viagemId, dados);
+    try {
+      await apiViagens.atualizarAbastecimento(viagemId, dados);
+    } catch(e) {
+      if (!isNetworkError(e)) throw e;
+      enqueueOfflineAction({ type:"abastecimento", viagemId, abastecimento:dados });
+    }
   }
 
   // Estados de carregamento
@@ -129,6 +245,11 @@ export default function App() {
       {/* Botão logout fixo quando logado */}
       {authState === "logado" && !painelPaciente && (
         <div style={{ position:"fixed", top:10, right:10, zIndex:300, display:"flex", gap:8, alignItems:"center" }}>
+          {(!isOnline || pendingSync > 0 || syncing) && (
+            <div style={{ fontSize:11, color:isOnline?"#92400e":"#991b1b", background:isOnline?"#fffbeb":"#fef2f2", borderRadius:8, padding:"4px 10px", border:"1px solid "+(isOnline?"#fcd34d":"#fca5a5"), fontWeight:700 }}>
+              {!isOnline ? "Offline" : syncing ? "Sincronizando..." : `${pendingSync} pendente(s)`}
+            </div>
+          )}
           <div style={{ fontSize:11, color:"#475569", background:"#0a1628", borderRadius:8, padding:"4px 10px", border:"1px solid #1e293b" }}>
             {perfil?.nome}
           </div>
