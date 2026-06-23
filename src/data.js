@@ -192,6 +192,7 @@ export const apiViagens = {
   async atualizarStatusPassageiro(paxId, status) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ status }) }); },
   async atualizarAssinatura(paxId, assinatura) { await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ assinatura }) }); },
   async atualizarAbastecimento(viagemId, abastecimento) { await sb(`viagens?id=eq.${viagemId}`, { method:"PATCH", body: JSON.stringify({ abastecimento }) }); },
+  async atualizarStatusViagem(viagemId, status, abastecimento) { await sb(`viagens?id=eq.${viagemId}`, { method:"PATCH", body: JSON.stringify({ status, abastecimento }) }); },
   async deletar(id) { await sb(`viagens?id=eq.${id}`, { method:"DELETE", prefer:"" }); },
   async moverPassageiro(paxId, novaViagemId) {
     await sb(`passageiros_viagem?id=eq.${paxId}`, { method:"PATCH", body: JSON.stringify({ viagem_id: novaViagemId, status:"indefinido" }) });

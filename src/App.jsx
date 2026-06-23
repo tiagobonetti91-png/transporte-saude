@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, apiPacientes, apiDestinos, apiMotoristas, apiVeiculos, apiAdmins, apiViagens, mapPaciente, mapDestino, mapMotorista, mapVeiculo, fmtDate, TODAY } from './data.js';
+import { supabase, apiPacientes, apiDestinos, apiMotoristas, apiVeiculos, apiAdmins, apiViagens, apiTransferencias, mapPaciente, mapDestino, mapMotorista, mapVeiculo, fmtDate, TODAY } from './data.js';
 import { Btn } from './UI.jsx';
 import LoginScreen from './Auth.jsx';
 import DriverView from './DriverView.jsx';
@@ -175,6 +175,10 @@ export default function App() {
           await apiViagens.atualizarAssinatura(action.paxId, action.assinatura);
         } else if (action.type === "abastecimento") {
           await apiViagens.atualizarAbastecimento(action.viagemId, action.abastecimento);
+        } else if (action.type === "viagem") {
+          await apiViagens.atualizarStatusViagem(action.viagemId, action.status, action.abastecimento);
+        } else if (action.type === "transferencia") {
+          await apiTransferencias.criar(action.transferencia);
         }
       } catch(e) {
         remaining.push(action);
@@ -272,6 +276,27 @@ export default function App() {
     }
   }
 
+  async function handleViagemUpdate(viagemId, viagemAtualizada) {
+    setViagens(prev => prev.map(v => v.id !== viagemId ? v : viagemAtualizada));
+    try {
+      await apiViagens.atualizarStatusViagem(viagemId, viagemAtualizada.status, viagemAtualizada.abastecimento);
+    } catch(e) {
+      if (!isNetworkError(e)) throw e;
+      enqueueOfflineAction({ type:"viagem", viagemId, status:viagemAtualizada.status, abastecimento:viagemAtualizada.abastecimento });
+    }
+  }
+
+  async function handleTransferenciaOffline(transferencia) {
+    try {
+      await apiTransferencias.criar(transferencia);
+      return { offline:false };
+    } catch(e) {
+      if (!isNetworkError(e)) throw e;
+      enqueueOfflineAction({ type:"transferencia", transferencia });
+      return { offline:true };
+    }
+  }
+
   // Estados de carregamento
   if (authState === "checking") return <><style>{GS}</style><Loading msg="Verificando sessão..."/></>;
   if (authState === "logado" && loading) return <><style>{GS}</style><Loading msg="Carregando dados..."/></>;
@@ -307,6 +332,8 @@ export default function App() {
                 onStatusChange={handleStatusChange}
                 onAssinatura={handleAssinatura}
                 onAbastecimento={handleAbastecimento}
+                onViagemUpdate={handleViagemUpdate}
+                onTransferencia={handleTransferenciaOffline}
                 motoristaId={perfil.motorista_id}
                 motoristas={db.motoristas}
                 isOnline={isOnline}

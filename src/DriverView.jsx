@@ -187,7 +187,7 @@ function BannerTransferencias({ pendentes, viagens, motoristas, onAceitar, onRec
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DriverView({ viagens, setViagens, onStatusChange, onAssinatura, onAbastecimento, motoristaId, motoristas, isOnline=true, pendingSync=0, syncing=false, onLogout }) {
+export default function DriverView({ viagens, setViagens, onStatusChange, onAssinatura, onAbastecimento, onViagemUpdate, onTransferencia, motoristaId, motoristas, isOnline=true, pendingSync=0, syncing=false, onLogout }) {
   const [tab,setTab]=useState("roteiro");
   const [assinaturaModal,setAssinaturaModal]=useState(null);
   const [abastModal,setAbastModal]=useState(null);
@@ -250,12 +250,15 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
     const novoAbast=tipo==="iniciar"
       ?{...(viagem?.abastecimento||{}),kmInicial:km}
       :{...(viagem?.abastecimento||{}),kmFinal:km};
-    setViagens(prev=>prev.map(v=>v.id!==viagemId?v:{...v,status:novoStatus,abastecimento:novoAbast}));
+    const viagemAtualizada={...viagem,status:novoStatus,abastecimento:novoAbast};
+    setViagens(prev=>prev.map(v=>v.id!==viagemId?v:viagemAtualizada));
     try {
-      await apiViagens.atualizarAbastecimento(viagemId,novoAbast);
-      const viaAtual=viagens.find(v=>v.id===viagemId);
-      if(viaAtual) await apiViagens.atualizar(viagemId,{...viaAtual,status:novoStatus,abastecimento:novoAbast});
-    } catch(e){console.error(e);}
+      if(onViagemUpdate) await onViagemUpdate(viagemId,viagemAtualizada);
+      else {
+        await apiViagens.atualizarStatusViagem(viagemId,novoStatus,novoAbast);
+      }
+      if(!isOnline) alert(tipo==="iniciar"?"Viagem iniciada offline. Sera sincronizada quando voltar a internet.":"Viagem finalizada offline. Sera sincronizada quando voltar a internet.");
+    } catch(e){ alert("Erro ao salvar viagem: "+e.message); }
   }
 
   async function handleStatusChange(viagemId,paxId,newStatus) {
@@ -267,15 +270,22 @@ export default function DriverView({ viagens, setViagens, onStatusChange, onAssi
 
   async function enviarTransferencia(pax, viagem, motoristaDestId, viagemDestId) {
     setTransferModal(null);
+    const transferencia = {
+      passageiroId: pax.id,
+      viagemOrigemId: viagem.id,
+      viagemDestinoId: viagemDestId,
+      motoristaOrigemId: motoristaId,
+      motoristaDestinoId: motoristaDestId,
+    };
     try {
-      await apiTransferencias.criar({
-        passageiroId: pax.id,
-        viagemOrigemId: viagem.id,
-        viagemDestinoId: viagemDestId,
-        motoristaOrigemId: motoristaId,
-        motoristaDestinoId: motoristaDestId,
-      });
-      alert("Pedido enviado! Aguarde o motorista aceitar.");
+      const result = onTransferencia
+        ? await onTransferencia(transferencia)
+        : await apiTransferencias.criar(transferencia);
+      if(result?.offline) {
+        alert("Pedido salvo offline. O motorista destino ainda nao pode aceitar agora; ele recebera a solicitacao quando este aparelho voltar para a internet.");
+      } else {
+        alert("Pedido enviado! Aguarde o motorista aceitar.");
+      }
     } catch(e) { alert("Erro ao enviar: "+e.message); }
   }
 
